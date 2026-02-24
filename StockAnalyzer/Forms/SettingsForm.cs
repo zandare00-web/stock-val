@@ -6,16 +6,19 @@ using StockAnalyzer.Models;
 
 namespace StockAnalyzer.Forms
 {
+    // ══════════════════════════════════════════════════════════
+    //  설정 폼 (SettingsForm)
+    // ══════════════════════════════════════════════════════════
     public class SettingsForm : Form
     {
         static readonly Color SIDEBAR = Color.FromArgb(30, 39, 53);
-        static readonly Color TEAL    = Color.FromArgb(0, 188, 180);
-        static readonly Color BG      = Color.FromArgb(240, 242, 247);
-        static readonly Color CARD    = Color.White;
-        static readonly Color BRD     = Color.FromArgb(228, 232, 240);
-        static readonly Color TXT     = Color.FromArgb(40, 48, 62);
-        static readonly Color TXT2    = Color.FromArgb(120, 130, 150);
-        static readonly Color CORAL   = Color.FromArgb(233, 87, 87);
+        static readonly Color TEAL = Color.FromArgb(0, 188, 180);
+        static readonly Color BG = Color.FromArgb(240, 242, 247);
+        static readonly Color CARD = Color.White;
+        static readonly Color BRD = Color.FromArgb(228, 232, 240);
+        static readonly Color TXT = Color.FromArgb(40, 48, 62);
+        static readonly Color TXT2 = Color.FromArgb(120, 130, 150);
+        static readonly Color CORAL = Color.FromArgb(233, 87, 87);
 
         ScoreConfig _cfg;
         TableLayoutPanel _tbl;
@@ -83,13 +86,15 @@ namespace StockAnalyzer.Forms
             var bbar = new Panel { Dock = DockStyle.Fill, BackColor = CARD };
             bbar.Paint += (s, e) => { using (var p = new Pen(BRD)) e.Graphics.DrawLine(p, 0, 0, bbar.Width, 0); };
 
-            var bSave   = new DkBtn("저장",   TEAL,                          Color.White, 76, 32);
-            var bCancel = new DkBtn("취소",   Color.FromArgb(245, 247, 252), TXT,         76, 32);
-            var bReset  = new DkBtn("기본값", Color.FromArgb(245, 247, 252), TXT2,        76, 32);
+            // ★ 여기서 사용하는 DkBtn 클래스가 파일 하단에 정의되어 있어야 합니다! ★
+            var bSave = new DkBtn("저장", TEAL, Color.White, 76, 32);
+            var bCancel = new DkBtn("취소", Color.FromArgb(245, 247, 252), TXT, 76, 32);
+            var bReset = new DkBtn("기본값", Color.FromArgb(245, 247, 252), TXT2, 76, 32);
             bbar.Resize += (s, e) => { bSave.Location = new Point(bbar.Width - 92, 11); bCancel.Location = new Point(bbar.Width - 174, 11); bReset.Location = new Point(14, 11); };
             bbar.Controls.AddRange(new Control[] { bSave, bCancel, bReset });
             root.Controls.Add(bbar, 0, 2);
 
+            // 이벤트 처리
             bSave.Click += (s, e) =>
             {
                 _cfg.PerScore = V(perBox); _cfg.PbrScore = V(pbrBox); _cfg.RoeScore = V(roeBox);
@@ -132,5 +137,51 @@ namespace StockAnalyzer.Forms
         }
 
         static double V(NumericUpDown n) => (double)n.Value;
+    }
+
+    // ══════════════════════════════════════════════════════════
+    //  커스텀 버튼 컨트롤 (누락되었던 DkBtn 클래스) - 절대 지우지 마세요!
+    // ══════════════════════════════════════════════════════════
+    internal sealed class DkBtn : Control
+    {
+        public Color Bg, Fg, Bdr;
+        public int Rad = 6;
+        bool _h;
+
+        public DkBtn(string t, Color bg, Color fg, int w, int h)
+        {
+            Text = t; Bg = bg; Fg = fg; Bdr = Color.Empty; Size = new Size(w, h);
+            Font = new Font("Segoe UI", 9f, FontStyle.Bold); Cursor = Cursors.Hand;
+            SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.DoubleBuffer | ControlStyles.SupportsTransparentBackColor, true);
+            BackColor = Color.Transparent;
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+            var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
+            var r = new Rectangle(0, 0, Width - 1, Height - 1);
+            var bg = Enabled ? (_h ? Lt(Bg, 15) : Bg) : Color.FromArgb(226, 232, 240);
+
+            using (var p = RR(r, Rad))
+            {
+                using (var b = new SolidBrush(bg)) g.FillPath(b, p);
+                if (Bdr != Color.Empty) using (var pen = new Pen(Bdr)) g.DrawPath(pen, p);
+            }
+            TextRenderer.DrawText(g, Text, Font, r, Enabled ? Fg : Color.FromArgb(148, 163, 184), TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+        protected override void OnMouseEnter(EventArgs e) { _h = true; Invalidate(); }
+        protected override void OnMouseLeave(EventArgs e) { _h = false; Invalidate(); }
+
+        static Color Lt(Color c, int a) => Color.FromArgb(Math.Min(255, c.R + a), Math.Min(255, c.G + a), Math.Min(255, c.B + a));
+        static GraphicsPath RR(Rectangle r, int d)
+        {
+            var p = new GraphicsPath(); int dd = d * 2;
+            p.AddArc(r.X, r.Y, dd, dd, 180, 90);
+            p.AddArc(r.Right - dd, r.Y, dd, dd, 270, 90);
+            p.AddArc(r.Right - dd, r.Bottom - dd, dd, dd, 0, 90);
+            p.AddArc(r.X, r.Bottom - dd, dd, dd, 90, 90);
+            p.CloseFigure(); return p;
+        }
     }
 }

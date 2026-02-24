@@ -1,12 +1,55 @@
 {
   "Version": 1,
   "WorkspaceRootPath": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\",
-  "Documents": [],
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\forms\\mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\forms\\mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\forms\\settingsform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\forms\\settingsform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
   "DocumentGroupContainers": [
     {
       "Orientation": 0,
       "VerticalTabListWidth": 256,
-      "DocumentGroups": []
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 0,
+          "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "MainForm.cs",
+              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\MainForm.cs",
+              "RelativeDocumentMoniker": "StockAnalyzer\\Forms\\MainForm.cs",
+              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\MainForm.cs",
+              "RelativeToolTip": "StockAnalyzer\\Forms\\MainForm.cs",
+              "ViewState": "AgIAALwBAAAAAAAAAAAAwMIBAAAvAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-24T13:38:22.531Z",
+              "IsPinned": true,
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "SettingsForm.cs",
+              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\SettingsForm.cs",
+              "RelativeDocumentMoniker": "StockAnalyzer\\Forms\\SettingsForm.cs",
+              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\SettingsForm.cs",
+              "RelativeToolTip": "StockAnalyzer\\Forms\\SettingsForm.cs",
+              "ViewState": "AgIAAKYAAAAAAAAAAAAswLoAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-24T13:40:27.221Z",
+              "EditorCaption": ""
+            }
+          ]
+        }
+      ]
     }
   ]
 }
