@@ -83,9 +83,9 @@ namespace StockAnalyzer.Forms
             var bbar = new Panel { Dock = DockStyle.Fill, BackColor = CARD };
             bbar.Paint += (s, e) => { using (var p = new Pen(BRD)) e.Graphics.DrawLine(p, 0, 0, bbar.Width, 0); };
 
-            var bSave = new RndBtn("저장", TEAL, Color.White, 76, 32);
-            var bCancel = new RndBtn("취소", Color.FromArgb(245, 247, 252), TXT, 76, 32) { Bdr = BRD };
-            var bReset = new RndBtn("기본값", Color.FromArgb(245, 247, 252), TXT2, 76, 32) { Bdr = BRD };
+            var bSave   = new DkBtn("저장",   TEAL,                          Color.White, 76, 32);
+            var bCancel = new DkBtn("취소",   Color.FromArgb(245, 247, 252), TXT,         76, 32);
+            var bReset  = new DkBtn("기본값", Color.FromArgb(245, 247, 252), TXT2,        76, 32);
             bbar.Resize += (s, e) => { bSave.Location = new Point(bbar.Width - 92, 11); bCancel.Location = new Point(bbar.Width - 174, 11); bReset.Location = new Point(14, 11); };
             bbar.Controls.AddRange(new Control[] { bSave, bCancel, bReset });
             root.Controls.Add(bbar, 0, 2);

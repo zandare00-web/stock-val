@@ -11,6 +11,7 @@ D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\Stoc
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.csproj.GenerateResource.cache
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.GeneratedMSBuildEditorConfig.editorconfig
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.csproj.CoreCompileInputs.cache
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.sourcelink.json
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAna.043FEA54.Up2Date
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.exe
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.pdb
