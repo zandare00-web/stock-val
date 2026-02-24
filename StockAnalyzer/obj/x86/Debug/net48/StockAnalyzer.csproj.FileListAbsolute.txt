@@ -1,0 +1,16 @@
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\StockAnalyzer.exe.config
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\StockAnalyzer.exe
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\StockAnalyzer.pdb
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\Newtonsoft.Json.dll
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\AxInterop.KHOpenAPILib.dll
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\AxKHOpenAPILib.dll
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\Interop.KHOpenAPILib.dll
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\KHOpenAPILib.dll
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.csproj.AssemblyReference.cache
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.Forms.MainForm.resources
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.csproj.GenerateResource.cache
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.GeneratedMSBuildEditorConfig.editorconfig
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.csproj.CoreCompileInputs.cache
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAna.043FEA54.Up2Date
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.exe
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\obj\x86\Debug\net48\StockAnalyzer.pdb

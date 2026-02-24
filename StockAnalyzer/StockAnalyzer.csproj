@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <PlatformTarget>x86</PlatformTarget>
+    <AssemblyName>StockAnalyzer</AssemblyName>
+    <RootNamespace>StockAnalyzer</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Platforms>AnyCPU;x86</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+  </ItemGroup>
+
+  <!-- 키움 OCX 직접 참조 -->
+  <ItemGroup>
+    <Reference Include="AxInterop.KHOpenAPILib">
+      <HintPath>C:\OpenAPI\AxInterop.KHOpenAPILib.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="AxKHOpenAPILib">
+      <HintPath>C:\OpenAPI\AxKHOpenAPILib.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="Interop.KHOpenAPILib">
+      <HintPath>C:\OpenAPI\Interop.KHOpenAPILib.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+    <Reference Include="KHOpenAPILib">
+      <HintPath>C:\OpenAPI\KHOpenAPILib.dll</HintPath>
+      <EmbedInteropTypes>false</EmbedInteropTypes>
+    </Reference>
+  </ItemGroup>
+
+</Project>
