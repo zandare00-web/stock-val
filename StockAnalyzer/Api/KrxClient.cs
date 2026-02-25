@@ -30,9 +30,9 @@ namespace StockAnalyzer.Api
 
         // 주식 엔드포인트
         private const string STK_DAILY_TRADE = "/sto/stk_bydd_trd";
-        private const string STK_BASE_INFO   = "/sto/stk_isu_base_info";
+        private const string STK_BASE_INFO = "/sto/stk_isu_base_info";
         private const string KSQ_DAILY_TRADE = "/sto/ksq_bydd_trd";
-        private const string KSQ_BASE_INFO   = "/sto/ksq_isu_base_info";
+        private const string KSQ_BASE_INFO = "/sto/ksq_isu_base_info";
 
         public KrxClient(string authKey)
         {
@@ -167,11 +167,11 @@ namespace StockAnalyzer.Api
 
             _dailyTradeCache[code] = new StockDailyTrade
             {
-                Code       = code,
+                Code = code,
                 ClosePrice = ParseDouble((item["TDD_CLSPRC"] ?? "0").ToString()),
-                Volume     = (long)ParseDouble((item["ACC_TRDVOL"] ?? "0").ToString()),
+                Volume = (long)ParseDouble((item["ACC_TRDVOL"] ?? "0").ToString()),
                 TradeValue = ParseDouble((item["ACC_TRDVAL"] ?? "0").ToString()),
-                MarketCap  = ParseDouble((item["MKTCAP"] ?? "0").ToString()),
+                MarketCap = ParseDouble((item["MKTCAP"] ?? "0").ToString()),
                 ListShares = (long)ParseDouble((item["LIST_SHRS"] ?? "0").ToString()),
             };
         }
@@ -183,12 +183,15 @@ namespace StockAnalyzer.Api
 
             return new StockInfo
             {
-                Code         = code,
-                Name         = (item["ISU_NM"] ?? item["ISU_ABBRV"] ?? code).ToString().Trim(),
-                Market       = market,
-                SectorCode   = (item["IDX_IND_CD"] ?? item["IND_TP_CD"]
-                               ?? item["MKT_TP_NM"] ?? "").ToString().Trim(),
-                SectorName   = (item["IDX_IND_NM"] ?? item["IND_TP_NM"] ?? "").ToString().Trim(),
+                Code = code,
+                Name = (item["ISU_ABBRV"] ?? item["ISU_NM"] ?? code).ToString().Trim(),
+                Market = market,
+                // 업종코드: 여러 필드명 시도 (KRX API 버전에 따라 다를 수 있음)
+                SectorCode = (item["IDX_IND_CD"] ?? item["IND_TP_CD"]
+                               ?? item["SECT_TP_CD"] ?? "").ToString().Trim(),
+                // 업종이름: 여러 필드명 시도
+                SectorName = (item["IDX_IND_NM"] ?? item["IND_TP_NM"]
+                               ?? item["SECT_TP_NM"] ?? "").ToString().Trim(),
                 CurrentPrice = ParseDouble((item["TDD_CLSPRC"] ?? "0").ToString()),
             };
         }
@@ -248,8 +251,8 @@ namespace StockAnalyzer.Api
                 {
                     SectorCode = g.Key,
                     SectorName = g.First().SectorName,
-                    AvgPer     = null,  // 키움에서 보완
-                    AvgPbr     = null,
+                    AvgPer = null,  // 키움에서 보완
+                    AvgPbr = null,
                 };
             }
 
@@ -296,7 +299,7 @@ namespace StockAnalyzer.Api
                         {
                             SectorCode = stockInfo.SectorCode,
                             SectorName = stockInfo.SectorName,
-                            Market     = market,
+                            Market = market,
                         };
                         sectorMap[stockInfo.SectorCode] = summary;
                     }
@@ -313,6 +316,24 @@ namespace StockAnalyzer.Api
         }
 
         // ── 유틸 ────────────────────────────────────────────────
+
+        /// <summary>KRX API 첫 항목의 모든 필드명:값 반환 (디버깅용)</summary>
+        public async Task<string> DumpFirstItemFieldsAsync()
+        {
+            try
+            {
+                var latestDate = GetLatestTradingDate();
+                var kospiInfo = await PostAsync(STK_BASE_INFO,
+                    new Dictionary<string, string> { ["basDd"] = latestDate });
+                if (kospiInfo.Count == 0) return "(KRX 데이터 없음)";
+                var first = kospiInfo[0] as JObject;
+                if (first == null) return "(파싱 실패)";
+                var parts = first.Properties()
+                    .Select(p => $"{p.Name}=[{p.Value?.ToString()?.Substring(0, Math.Min(30, p.Value?.ToString()?.Length ?? 0))}]");
+                return string.Join(", ", parts);
+            }
+            catch (Exception ex) { return $"(오류: {ex.Message})"; }
+        }
 
         private static string GetLatestTradingDate()
         {
@@ -339,11 +360,11 @@ namespace StockAnalyzer.Api
     /// <summary>일별매매정보 캐시용</summary>
     internal class StockDailyTrade
     {
-        public string Code       { get; set; }
+        public string Code { get; set; }
         public double ClosePrice { get; set; }
-        public long   Volume     { get; set; }
+        public long Volume { get; set; }
         public double TradeValue { get; set; }
-        public double MarketCap  { get; set; }
-        public long   ListShares { get; set; }
+        public double MarketCap { get; set; }
+        public long ListShares { get; set; }
     }
 }

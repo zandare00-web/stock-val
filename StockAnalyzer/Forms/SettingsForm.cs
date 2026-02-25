@@ -26,7 +26,7 @@ namespace StockAnalyzer.Forms
         public SettingsForm()
         {
             _cfg = ScoreConfig.Load();
-            Text = "설정"; Size = new Size(490, 660); MinimumSize = new Size(420, 520);
+            Text = "설정"; MinimumSize = new Size(420, 520);
             StartPosition = FormStartPosition.CenterParent;
             BackColor = BG; ForeColor = TXT; FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false;
 
@@ -46,9 +46,9 @@ namespace StockAnalyzer.Forms
             var cardOuter = new Panel { Dock = DockStyle.Top, AutoSize = true, BackColor = CARD, Padding = new Padding(1) };
             cardOuter.Paint += (s, e) => { using (var pen = new Pen(BRD)) e.Graphics.DrawRectangle(pen, 0, 0, cardOuter.Width - 1, cardOuter.Height - 1); };
 
-            _tbl = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(16, 8, 16, 8), BackColor = CARD, Width = 430 };
-            _tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
-            _tbl.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 42));
+            _tbl = new TableLayoutPanel { ColumnCount = 2, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(16, 8, 16, 8), BackColor = CARD };
+            _tbl.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            _tbl.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             cardOuter.Controls.Add(_tbl);
             scroll.Controls.Add(cardOuter);
             root.Controls.Add(scroll, 0, 1);
@@ -109,6 +109,14 @@ namespace StockAnalyzer.Forms
             };
             bCancel.Click += (s, e) => Close();
             bReset.Click += (s, e) => { if (MessageBox.Show("기본값으로 초기화할까요?", "확인", MessageBoxButtons.YesNo) == DialogResult.Yes) { _cfg = new ScoreConfig(); _cfg.Save(); Close(); } };
+
+            // Auto-size form to fit content
+            Load += (s, e) =>
+            {
+                int contentW = _tbl.PreferredSize.Width + 60; // padding + borders
+                int contentH = _tbl.PreferredSize.Height + 46 + 54 + 60; // header + button bar + chrome
+                Size = new Size(Math.Max(contentW, MinimumSize.Width), Math.Min(contentH, 750));
+            };
         }
 
         void Sec(string t)
@@ -124,15 +132,15 @@ namespace StockAnalyzer.Forms
 
         NumericUpDown Row(string label, double val)
         {
-            _tbl.Controls.Add(new Label { Text = label, Height = 28, Dock = DockStyle.Fill, ForeColor = TXT2, Font = new Font("Segoe UI", 8.8f), TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.White });
-            var n = new NumericUpDown { Value = (decimal)val, Minimum = 0, Maximum = 100, DecimalPlaces = 1, Increment = 0.5m, Height = 26, Width = 90, BackColor = Color.FromArgb(248, 249, 252), ForeColor = TXT, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.8f) };
+            _tbl.Controls.Add(new Label { Text = label, Height = 28, Width = 180, Dock = DockStyle.Fill, ForeColor = TXT2, Font = new Font("Segoe UI", 8.8f), TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.White });
+            var n = new NumericUpDown { Value = (decimal)val, Minimum = 0, Maximum = 100, DecimalPlaces = 1, Increment = 0.5m, Height = 26, Width = 100, BackColor = Color.FromArgb(248, 249, 252), ForeColor = TXT, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Segoe UI", 8.8f) };
             _tbl.Controls.Add(n); return n;
         }
 
         TextBox TxtRow(string label, string val)
         {
-            _tbl.Controls.Add(new Label { Text = label, Height = 28, Dock = DockStyle.Fill, ForeColor = TXT2, Font = new Font("Segoe UI", 8.8f), TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.White });
-            var t = new TextBox { Text = val ?? "", Height = 26, Width = 195, BackColor = Color.FromArgb(248, 249, 252), ForeColor = TXT, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Consolas", 8.5f) };
+            _tbl.Controls.Add(new Label { Text = label, Height = 28, Width = 180, Dock = DockStyle.Fill, ForeColor = TXT2, Font = new Font("Segoe UI", 8.8f), TextAlign = ContentAlignment.MiddleLeft, BackColor = Color.White });
+            var t = new TextBox { Text = val ?? "", Height = 26, Width = 220, BackColor = Color.FromArgb(248, 249, 252), ForeColor = TXT, BorderStyle = BorderStyle.FixedSingle, Font = new Font("Consolas", 8.5f) };
             _tbl.Controls.Add(t); return t;
         }
 
