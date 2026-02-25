@@ -49,14 +49,22 @@ namespace StockAnalyzer.Scoring
 
             if (fund?.Per.HasValue == true && sec?.AvgPer.HasValue == true && sec.AvgPer > 0)
             {
-                double discount = (sec.AvgPer.Value - fund.Per.Value) / sec.AvgPer.Value;
-                score += Clamp(discount, 0, 1) * cfg.PerScore;
+                // 음수 PER(적자 기업)은 저평가가 아니므로 0점 처리
+                if (fund.Per.Value > 0)
+                {
+                    double discount = (sec.AvgPer.Value - fund.Per.Value) / sec.AvgPer.Value;
+                    score += Clamp(discount, 0, 1) * cfg.PerScore;
+                }
             }
 
             if (fund?.Pbr.HasValue == true && sec?.AvgPbr.HasValue == true && sec.AvgPbr > 0)
             {
-                double discount = (sec.AvgPbr.Value - fund.Pbr.Value) / sec.AvgPbr.Value;
-                score += Clamp(discount, 0, 1) * cfg.PbrScore;
+                // 음수 PBR(자본잠식 기업)은 저평가가 아니므로 0점 처리
+                if (fund.Pbr.Value > 0)
+                {
+                    double discount = (sec.AvgPbr.Value - fund.Pbr.Value) / sec.AvgPbr.Value;
+                    score += Clamp(discount, 0, 1) * cfg.PbrScore;
+                }
             }
 
             if (fund?.Roe.HasValue == true && fund.Roe > 0)

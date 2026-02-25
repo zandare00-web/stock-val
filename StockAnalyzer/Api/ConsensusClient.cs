@@ -77,8 +77,13 @@ namespace StockAnalyzer.Api
         private async Task<ConsensusData> FetchWiseReportAsync(string code, CancellationToken ct)
         {
             var url = $"https://navercomp.wisereport.co.kr/v2/company/c1010001.aspx?cmp_cd={code}&target=finsum_more";
-            var html = await _http.GetStringAsync(url);
-            ct.ThrowIfCancellationRequested();
+            string html;
+            using (var req = new HttpRequestMessage(HttpMethod.Get, url))
+            using (var resp = await _http.SendAsync(req, ct))
+            {
+                resp.EnsureSuccessStatusCode();
+                html = await resp.Content.ReadAsStringAsync();
+            }
 
             var data = new ConsensusData { Source = "WiseReport" };
 

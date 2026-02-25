@@ -11,7 +11,8 @@ namespace StockAnalyzer.Api
     public class KiwoomClient : IDisposable
     {
         private readonly AxKHOpenAPI _ax;
-        private readonly SemaphoreSlim _trLock = new SemaphoreSlim(1, 1);
+        // 같은 AxKHOpenAPI를 공유하는 모든 인스턴스에서 SetInputValue/CommRqData 경쟁 방지
+        private static readonly SemaphoreSlim _trLock = new SemaphoreSlim(1, 1);
         private readonly int _trDelayMs = 200;
 
         private TaskCompletionSource<bool> _loginTcs;
@@ -451,7 +452,7 @@ namespace StockAnalyzer.Api
             _ax.OnReceiveMsg -= OnReceiveMsg;
             _ax.OnReceiveConditionVer -= OnReceiveConditionVer;
             _ax.OnReceiveTrCondition -= OnReceiveTrCondition;
-            _trLock.Dispose();
+            // _trLock은 static이므로 개별 인스턴스에서 Dispose하지 않음
         }
     }
 
