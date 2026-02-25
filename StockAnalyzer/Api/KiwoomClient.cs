@@ -393,8 +393,9 @@ namespace StockAnalyzer.Api
 
         public double? GetDouble(string rec, string fld, int idx = 0)
         {
-            var s = GetString(rec, fld, idx).Replace(",", "");
-            return double.TryParse(s, out var v) && v != 0 ? v : (double?)null;
+            var s = GetString(rec, fld, idx).Replace(",", "").Replace("+", "").Trim();
+            if (string.IsNullOrWhiteSpace(s)) return null;
+            return double.TryParse(s, out var v) ? v : (double?)null;
         }
 
         public double GetDouble2(string rec, string fld, int idx = 0)

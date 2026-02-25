@@ -11,9 +11,9 @@ namespace StockAnalyzer.Scoring
             StockInfo info,
             FundamentalData fund,
             SectorFundamental secFund,
-            List<InvestorDay> investors,   // 최신순 60일
-            List<DailyBar> bars,        // 최신순 60일
-            List<SectorSupplyDay> secSupply, // 최신순 20일
+            List<InvestorDay> investors,
+            List<DailyBar> bars,
+            List<SectorSupplyDay> secSupply,
             ScoreConfig cfg)
         {
             var r = new AnalysisResult
@@ -31,13 +31,8 @@ namespace StockAnalyzer.Scoring
                 SectorAvgPbr = secFund?.AvgPbr,
             };
 
-            // ── 기업가치 점수 ────────────────────────────────────
             r.ValueScore = CalcValueScore(fund, secFund, cfg);
-
-            // ── 종목수급 점수 ────────────────────────────────────
             r.StockSupplyScore = CalcStockSupplyScore(investors, bars, cfg, r);
-
-            // ── 업종수급 점수 ────────────────────────────────────
             r.SectorSupplyScore = CalcSectorSupplyScore(secSupply, cfg, r);
 
             r.TotalScore = r.ValueScore + r.StockSupplyScore + r.SectorSupplyScore;
@@ -45,7 +40,7 @@ namespace StockAnalyzer.Scoring
             return r;
         }
 
-        // ── 기업가치 ─────────────────────────────────────────────
+        // ── 기업가치 (기본 5점) ──────────────────────────────────
 
         private static double CalcValueScore(
             FundamentalData fund, SectorFundamental sec, ScoreConfig cfg)
@@ -70,7 +65,7 @@ namespace StockAnalyzer.Scoring
             return score;
         }
 
-        // ── 종목수급 ─────────────────────────────────────────────
+        // ── 종목수급 (기본 55점) ─────────────────────────────────
 
         private static double CalcStockSupplyScore(
             List<InvestorDay> investors, List<DailyBar> bars,
@@ -79,33 +74,30 @@ namespace StockAnalyzer.Scoring
             double score = 0;
             if (investors == null || investors.Count == 0) return 0;
 
-            double maxForeign = investors.Max(d => Math.Abs((double)d.ForeignNet));
-            double maxInst = investors.Max(d => Math.Abs((double)d.InstNet));
-            if (maxForeign == 0) maxForeign = 1;
-            if (maxInst == 0) maxInst = 1;
-
-            // 당일
+            // 개별 값 기록 (UI 표시용)
             r.ForeignNetD1 = investors.Count > 0 ? investors[0].ForeignNet : 0;
             r.InstNetD1 = investors.Count > 0 ? investors[0].InstNet : 0;
-
-            // 5일 합
             r.ForeignNet5D = investors.Take(5).Sum(d => d.ForeignNet);
             r.InstNet5D = investors.Take(5).Sum(d => d.InstNet);
-
-            // 10일 합
             r.ForeignNet10D = investors.Take(10).Sum(d => d.ForeignNet);
             r.InstNet10D = investors.Take(10).Sum(d => d.InstNet);
-
-            // 20일 합
             r.ForeignNet20D = investors.Take(20).Sum(d => d.ForeignNet);
             r.InstNet20D = investors.Take(20).Sum(d => d.InstNet);
 
-            score += NormalizeSupply(r.ForeignNetD1, maxForeign) * cfg.ForeignD1Score;
-            score += NormalizeSupply(r.ForeignNet5D, maxForeign * 5) * cfg.Foreign5DScore;
-            score += NormalizeSupply(r.ForeignNet20D, maxForeign * 20) * cfg.Foreign20DScore;
-            score += NormalizeSupply(r.InstNetD1, maxInst) * cfg.InstD1Score;
-            score += NormalizeSupply(r.InstNet5D, maxInst * 5) * cfg.Inst5DScore;
-            score += NormalizeSupply(r.InstNet20D, maxInst * 20) * cfg.Inst20DScore;
+            // ★ 외국인+기관 합계로 점수 계산
+            long combined5D = r.ForeignNet5D + r.InstNet5D;
+            long combined10D = r.ForeignNet10D + r.InstNet10D;
+            long combined20D = r.ForeignNet20D + r.InstNet20D;
+
+            // 정규화 기준: 각 기간의 일별 합계(외+기) 최대 절대값
+            var dailyCombined = investors.Select(d => (double)(d.ForeignNet + d.InstNet)).ToList();
+            double maxDaily = dailyCombined.Count > 0
+                ? dailyCombined.Max(v => Math.Abs(v)) : 1;
+            if (maxDaily == 0) maxDaily = 1;
+
+            score += NormalizeSupply(combined5D, maxDaily * 5) * cfg.Supply5DScore;
+            score += NormalizeSupply(combined10D, maxDaily * 10) * cfg.Supply10DScore;
+            score += NormalizeSupply(combined20D, maxDaily * 20) * cfg.Supply20DScore;
 
             // 거래회전율 추세
             if (bars != null && bars.Count >= 20)
@@ -126,7 +118,7 @@ namespace StockAnalyzer.Scoring
                 }
             }
 
-            // 거래량 비교 (20D avg vs 60D avg)
+            // 거래량 비교
             CalcVolumeTrend(bars, r);
 
             // 수급강도 추세
@@ -142,110 +134,72 @@ namespace StockAnalyzer.Scoring
             foreach (var b in bars)
             {
                 if (b.MarketCap > 0 && b.TradeAmount > 0)
-                {
-                    sum += b.TradeAmount / b.MarketCap;
-                    cnt++;
-                }
+                { sum += b.TradeAmount / b.MarketCap; cnt++; }
             }
             return cnt > 0 ? sum / cnt : 0;
         }
 
-        /// <summary>60일 평균거래량 대비 20일 평균거래량 비교</summary>
         private static void CalcVolumeTrend(List<DailyBar> bars, AnalysisResult r)
         {
             if (bars == null || bars.Count < 20) return;
-
-            var bars20 = bars.Take(20).ToList();
-            var bars60 = bars.Take(Math.Min(60, bars.Count)).ToList();
-
-            double avg20 = bars20.Average(b => (double)b.Volume);
-            double avg60 = bars60.Average(b => (double)b.Volume);
-
+            double avg20 = bars.Take(20).Average(b => (double)b.Volume);
+            double avg60 = bars.Take(Math.Min(60, bars.Count)).Average(b => (double)b.Volume);
             r.VolAvg20D = avg20;
             r.VolAvg60D = avg60;
-
-            if (avg60 <= 0)
-            {
-                r.VolTrend = VolTrend.보합;
-                return;
-            }
-
+            if (avg60 <= 0) { r.VolTrend = VolTrend.보합; return; }
             double ratio = (avg20 - avg60) / avg60;
-            if (ratio > 0.10) r.VolTrend = VolTrend.상승;   // +10% 이상
-            else if (ratio < -0.10) r.VolTrend = VolTrend.하락;   // -10% 이상
-            else r.VolTrend = VolTrend.보합;
+            r.VolTrend = ratio > 0.10 ? VolTrend.상승 : ratio < -0.10 ? VolTrend.하락 : VolTrend.보합;
         }
 
-        // 수급강도 추세 계산
         private static void CalcSupplyTrend(
             List<InvestorDay> investors, List<DailyBar> bars,
             ScoreConfig cfg, AnalysisResult r)
         {
             if (investors == null || investors.Count < 10) return;
-
-            double s5 = CalcSupplyStrength(investors.Take(5).ToList(),
-                                              bars?.Take(5).ToList());
-            double sPrev = CalcSupplyStrength(investors.Skip(5).Take(5).ToList(),
-                                              bars?.Skip(5).Take(5).ToList());
-
+            double s5 = CalcSupplyStrength(investors.Take(5).ToList(), bars?.Take(5).ToList());
+            double sPrev = CalcSupplyStrength(investors.Skip(5).Take(5).ToList(), bars?.Skip(5).Take(5).ToList());
             r.SupplyStrength5D = s5;
             r.SupplyStrengthPrev5D = sPrev;
 
             double threshold = cfg.TrendThresholdPct / 100.0;
-
-            if (sPrev <= 0 && s5 > 0)
-                r.SupplyTrend = SupplyTrend.상승반전;
-            else if (sPrev >= 0 && s5 < 0)
-                r.SupplyTrend = SupplyTrend.하락반전;
+            if (sPrev <= 0 && s5 > 0) r.SupplyTrend = SupplyTrend.상승반전;
+            else if (sPrev >= 0 && s5 < 0) r.SupplyTrend = SupplyTrend.하락반전;
             else
             {
                 double change = Math.Abs(sPrev) > 0.001
                     ? (s5 - sPrev) / Math.Abs(sPrev)
                     : (s5 > 0 ? 1 : s5 < 0 ? -1 : 0);
-
                 if (change > threshold) r.SupplyTrend = SupplyTrend.상승;
                 else if (change < -threshold) r.SupplyTrend = SupplyTrend.하락;
                 else r.SupplyTrend = SupplyTrend.보합;
             }
         }
 
-        private static double CalcSupplyStrength(
-            List<InvestorDay> days, List<DailyBar> bars)
+        private static double CalcSupplyStrength(List<InvestorDay> days, List<DailyBar> bars)
         {
             if (days == null || days.Count == 0) return 0;
 
-            long totalVol = days.Sum(d => d.Volume);
-            long netQty = days.Sum(d => d.ForeignNet + d.InstNet);
-            double qtyRatio = totalVol > 0 ? (double)netQty / totalVol : 0;
-
+            // opt10059를 금액(원) 기준으로 수집 중이므로 단위를 맞춰 계산
+            // 수급강도 = (외인+기관 순매수금액 합계) / (동기간 거래대금 합계)
             double totalTrade = bars?.Sum(b => b.TradeAmount) ?? 0;
-            double netAmt = days.Sum(d => (double)(d.ForeignNet + d.InstNet));
-            double avgPrice = totalVol > 0 && totalTrade > 0
-                ? totalTrade / totalVol : 0;
-            double amtRatio = totalTrade > 0
-                ? (netAmt * avgPrice) / totalTrade : 0;
+            if (totalTrade <= 0) return 0;
 
-            return (qtyRatio * 0.5) + (amtRatio * 0.5);
+            double netAmt = days.Sum(d => (double)(d.ForeignNet + d.InstNet));
+            return netAmt / totalTrade;
         }
 
-        // ── 업종수급 (public) ────────────────────────────────────
+        // ── 업종수급 (기본 40점) ─────────────────────────────────
 
         public static double CalcSectorSupplyPublic(
             List<SectorSupplyDay> supply, ScoreConfig cfg, AnalysisResult r)
             => CalcSectorSupplyScore(supply, cfg, r);
-
-        // ── 업종수급 ─────────────────────────────────────────────
 
         private static double CalcSectorSupplyScore(
             List<SectorSupplyDay> supply, ScoreConfig cfg, AnalysisResult r)
         {
             if (supply == null || supply.Count == 0) return 0;
 
-            double maxF = supply.Max(d => Math.Abs(d.ForeignNet));
-            double maxI = supply.Max(d => Math.Abs(d.InstNet));
-            if (maxF == 0) maxF = 1;
-            if (maxI == 0) maxI = 1;
-
+            // 개별 값 기록 (UI 표시용)
             r.SectorForeignD1 = supply.Count > 0 ? supply[0].ForeignNet : 0;
             r.SectorInstD1 = supply.Count > 0 ? supply[0].InstNet : 0;
             r.SectorForeign5D = supply.Take(5).Sum(d => d.ForeignNet);
@@ -253,17 +207,21 @@ namespace StockAnalyzer.Scoring
             r.SectorForeign20D = supply.Take(20).Sum(d => d.ForeignNet);
             r.SectorInst20D = supply.Take(20).Sum(d => d.InstNet);
 
+            // ★ 외국인+기관 합계로 점수 계산
+            double combined5D = supply.Take(5).Sum(d => d.ForeignNet + d.InstNet);
+            double combined10D = supply.Take(10).Sum(d => d.ForeignNet + d.InstNet);
+
+            var dailyCombined = supply.Select(d => Math.Abs(d.ForeignNet + d.InstNet)).ToList();
+            double maxDaily = dailyCombined.Count > 0 ? dailyCombined.Max() : 1;
+            if (maxDaily == 0) maxDaily = 1;
+
             double score = 0;
-            score += NormalizeSupply(r.SectorForeignD1, maxF) * cfg.SectorForeignD1Score;
-            score += NormalizeSupply(r.SectorForeign5D, maxF * 5) * cfg.SectorForeign5DScore;
-            score += NormalizeSupply(r.SectorForeign20D, maxF * 20) * cfg.SectorForeign20DScore;
-            score += NormalizeSupply(r.SectorInstD1, maxI) * cfg.SectorInstD1Score;
-            score += NormalizeSupply(r.SectorInst5D, maxI * 5) * cfg.SectorInst5DScore;
-            score += NormalizeSupply(r.SectorInst20D, maxI * 20) * cfg.SectorInst20DScore;
+            score += NormalizeSupply(combined5D, maxDaily * 5) * cfg.SectorSupply5DScore;
+            score += NormalizeSupply(combined10D, maxDaily * 10) * cfg.SectorSupply10DScore;
             return score;
         }
 
-        // ── 공통 유틸 ────────────────────────────────────────────
+        // ── 유틸 ────────────────────────────────────────────────
 
         private static double NormalizeSupply(double val, double maxAbs)
         {

@@ -3,6 +3,22 @@
   "WorkspaceRootPath": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\scoring\\stockscorer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\scoring\\stockscorer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|D:\\SynologyDrive1\\SynologyDrive\\stock-val\\stockanalyzer\\scoring\\stockscorer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form",
+      "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\scoring\\stockscorer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}|Form"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\models\\scoreconfig.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\models\\scoreconfig.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\forms\\settingsform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\forms\\settingsform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\forms\\mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\forms\\mainform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -19,20 +35,12 @@
       "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\models\\stockdata.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\scoring\\stockscorer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\scoring\\stockscorer.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\api\\krxclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\api\\krxclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\api\\consensusclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\api\\consensusclient.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|d:\\synologydrive1\\synologydrive\\stock-val\\stockanalyzer\\forms\\settingsform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{B1C2D3E4-F5A6-7890-BCDE-F12345678901}|StockAnalyzer\\StockAnalyzer.csproj|solutionrelative:stockanalyzer\\forms\\settingsform.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -42,51 +50,48 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 4,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 4,
               "Title": "MainForm.cs",
               "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\MainForm.cs",
               "RelativeDocumentMoniker": "StockAnalyzer\\Forms\\MainForm.cs",
               "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\MainForm.cs",
               "RelativeToolTip": "StockAnalyzer\\Forms\\MainForm.cs",
-              "ViewState": "AgIAADQDAAAAAAAAAAAiwEsDAAABAAAAAAAAAA==",
+              "ViewState": "AgIAAHQDAAAAAAAAAAAiwHgDAAAPAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-02-24T13:38:22.531Z",
-              "IsPinned": true,
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "KiwoomClient.cs",
-              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Api\\KiwoomClient.cs",
-              "RelativeDocumentMoniker": "StockAnalyzer\\Api\\KiwoomClient.cs",
-              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Api\\KiwoomClient.cs",
-              "RelativeToolTip": "StockAnalyzer\\Api\\KiwoomClient.cs",
-              "ViewState": "AgIAAJIBAAAAAAAAAAAiwKkBAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-25T03:25:22.163Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 3,
-              "Title": "StockData.cs",
-              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Models\\StockData.cs",
-              "RelativeDocumentMoniker": "StockAnalyzer\\Models\\StockData.cs",
-              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Models\\StockData.cs",
-              "RelativeToolTip": "StockAnalyzer\\Models\\StockData.cs",
-              "ViewState": "AgIAAIoAAAAAAAAAAAA4wI4AAAAAAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-24T15:05:18.177Z",
-              "EditorCaption": ""
+              "IsPinned": true
             },
             {
               "$type": "Document",
               "DocumentIndex": 1,
+              "Title": "StockScorer.cs [Design]",
+              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Scoring\\StockScorer.cs",
+              "RelativeDocumentMoniker": "StockAnalyzer\\Scoring\\StockScorer.cs",
+              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Scoring\\StockScorer.cs [Design]",
+              "RelativeToolTip": "StockAnalyzer\\Scoring\\StockScorer.cs [Design]",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-25T08:25:17.859Z",
+              "EditorCaption": " [Design]"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "ScoreConfig.cs",
+              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Models\\ScoreConfig.cs",
+              "RelativeDocumentMoniker": "StockAnalyzer\\Models\\ScoreConfig.cs",
+              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Models\\ScoreConfig.cs",
+              "RelativeToolTip": "StockAnalyzer\\Models\\ScoreConfig.cs",
+              "ViewState": "AgIAADUAAAAAAAAAAAA4wEwAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-25T08:23:44.177Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
               "Title": "AnalysisEngine.cs",
               "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Scoring\\AnalysisEngine.cs",
               "RelativeDocumentMoniker": "StockAnalyzer\\Scoring\\AnalysisEngine.cs",
@@ -94,25 +99,60 @@
               "RelativeToolTip": "StockAnalyzer\\Scoring\\AnalysisEngine.cs",
               "ViewState": "AgIAAFUBAAAAAAAAAAAiwGwBAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-25T03:25:05.914Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-25T03:25:05.914Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 0,
               "Title": "StockScorer.cs",
               "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Scoring\\StockScorer.cs",
               "RelativeDocumentMoniker": "StockAnalyzer\\Scoring\\StockScorer.cs",
               "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Scoring\\StockScorer.cs",
               "RelativeToolTip": "StockAnalyzer\\Scoring\\StockScorer.cs",
-              "ViewState": "AgIAAP0AAAAAAAAAAAAiwBQBAAABAAAAAAAAAA==",
+              "ViewState": "AgIAANYAAAAAAAAAAAAcwOAAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
               "WhenOpened": "2026-02-25T03:25:14.497Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 3,
+              "Title": "SettingsForm.cs",
+              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\SettingsForm.cs",
+              "RelativeDocumentMoniker": "StockAnalyzer\\Forms\\SettingsForm.cs",
+              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\SettingsForm.cs",
+              "RelativeToolTip": "StockAnalyzer\\Forms\\SettingsForm.cs",
+              "ViewState": "AgIAAK8AAAAAAAAAAAAiwMYAAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-24T13:40:27.221Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "StockData.cs",
+              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Models\\StockData.cs",
+              "RelativeDocumentMoniker": "StockAnalyzer\\Models\\StockData.cs",
+              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Models\\StockData.cs",
+              "RelativeToolTip": "StockAnalyzer\\Models\\StockData.cs",
+              "ViewState": "AgIAAIoAAAAAAAAAAAA4wI4AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-24T15:05:18.177Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "KiwoomClient.cs",
+              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Api\\KiwoomClient.cs",
+              "RelativeDocumentMoniker": "StockAnalyzer\\Api\\KiwoomClient.cs",
+              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Api\\KiwoomClient.cs",
+              "RelativeToolTip": "StockAnalyzer\\Api\\KiwoomClient.cs",
+              "ViewState": "AgIAAJIBAAAAAAAAAAAiwKkBAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-25T03:25:22.163Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 8,
               "Title": "KrxClient.cs",
               "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Api\\KrxClient.cs",
               "RelativeDocumentMoniker": "StockAnalyzer\\Api\\KrxClient.cs",
@@ -120,12 +160,11 @@
               "RelativeToolTip": "StockAnalyzer\\Api\\KrxClient.cs",
               "ViewState": "AgIAAFoBAAAAAAAAAAAiwHEBAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-25T03:25:27.757Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-02-25T03:25:27.757Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 9,
               "Title": "ConsensusClient.cs",
               "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Api\\ConsensusClient.cs",
               "RelativeDocumentMoniker": "StockAnalyzer\\Api\\ConsensusClient.cs",
@@ -133,20 +172,7 @@
               "RelativeToolTip": "StockAnalyzer\\Api\\ConsensusClient.cs",
               "ViewState": "AgIAACEBAAAAAAAAAAAUwCgBAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-24T15:14:14.154Z",
-              "EditorCaption": ""
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 7,
-              "Title": "SettingsForm.cs",
-              "DocumentMoniker": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\SettingsForm.cs",
-              "RelativeDocumentMoniker": "StockAnalyzer\\Forms\\SettingsForm.cs",
-              "ToolTip": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\Forms\\SettingsForm.cs",
-              "RelativeToolTip": "StockAnalyzer\\Forms\\SettingsForm.cs",
-              "ViewState": "AgIAAKYAAAAAAAAAAAAswLoAAAABAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-02-24T13:40:27.221Z"
+              "WhenOpened": "2026-02-24T15:14:14.154Z"
             }
           ]
         }

@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using AxKHOpenAPILib;
 using StockAnalyzer.Api;
 using StockAnalyzer.Models;
-using StockAnalyzer.Scoring;
 using StockAnalyzer.Utils;
 
 namespace StockAnalyzer.Scoring
@@ -39,11 +38,16 @@ namespace StockAnalyzer.Scoring
                 {
                     var allStocks = await krx.GetAllStocksAsync();
                     LogMsg($"  KRX에서 {allStocks.Count}개 종목 로드 완료");
+
+                    var allStocksByCode = allStocks
+                        .GroupBy(s => s.Code)
+                        .ToDictionary(g => g.Key, g => g.First());
+
                     foreach (var code in codes)
                     {
                         ct.ThrowIfCancellationRequested();
-                        var info = allStocks.FirstOrDefault(s => s.Code == code);
-                        if (info != null) stockInfos[code] = info;
+                        if (allStocksByCode.TryGetValue(code, out var info) && info != null)
+                            stockInfos[code] = info;
                     }
                     LogMsg($"  대상 종목 {stockInfos.Count}/{codes.Count}개 매칭");
                 }
@@ -91,48 +95,51 @@ namespace StockAnalyzer.Scoring
                 }
 
                 // ── 3. 업종수급 조회 (opt10051) ──────────────────
+                // 중요: 업종코드는 시장 간 중복될 수 있어 (시장,업종코드) 복합키 사용
                 LogMsg("▶ 업종별 투자자순매수 조회 (opt10051)...");
-                var sectorSupply = new Dictionary<string, List<SectorSupplyDay>>();
-                var sectorNameMap = new Dictionary<string, string>();   // code → name
-                var sectorMarketMap = new Dictionary<string, string>();   // code → KOSPI/KOSDAQ
+                var sectorSupply = new Dictionary<string, List<SectorSupplyDay>>();      // key=KOSPI|027
+                var sectorNameMap = new Dictionary<string, string>();                     // key → name
+                var sectorMarketMap = new Dictionary<string, string>();                    // key → KOSPI/KOSDAQ
                 var actualTradingDays = new List<DateTime>();
                 try
                 {
                     const int TARGET_DAYS = 20;
-                    const int MAX_TRIES = 35;
-                    var d = DateTime.Today;
-                    if (DateTime.Now.Hour < 18) d = d.AddDays(-1);
+                    const int MAX_TRIES = 45;
+                    var d = TradingDayHelper.GetLatestCompletedTradingDay();
 
                     int tries = 0;
                     int emptyCount = 0;
                     while (actualTradingDays.Count < TARGET_DAYS && tries < MAX_TRIES)
                     {
                         ct.ThrowIfCancellationRequested();
-                        if (d.DayOfWeek == DayOfWeek.Saturday) { d = d.AddDays(-1); continue; }
-                        if (d.DayOfWeek == DayOfWeek.Sunday) { d = d.AddDays(-1); continue; }
-
                         tries++;
-                        var dateStr = d.ToString("yyyyMMdd");
+
+                        var dTrade = TradingDayHelper.GetPreviousTradingDay(d);
+                        var dateStr = dTrade.ToString("yyyyMMdd");
+
                         var kospiRows = await kiwoom.GetSectorInvestorAsync("0", dateStr, "0");
                         if (kospiRows.Count == 0)
                         {
                             emptyCount++;
-                            if (emptyCount <= 3)
-                                LogMsg($"  ⚠ {dateStr}: 코스피 0건 (건너뜀, {emptyCount}회)");
-                            d = d.AddDays(-1); continue;
+                            if (emptyCount <= 5)
+                                LogMsg($"  ⚠ {dateStr}: 코스피 0건 (휴장/데이터없음 추정, 건너뜀 {emptyCount}회)");
+
+                            d = dTrade.AddDays(-1);
+                            continue;
                         }
 
-                        actualTradingDays.Add(d);
+                        actualTradingDays.Add(dTrade);
                         var kosdaqRows = await kiwoom.GetSectorInvestorAsync("1", dateStr, "0");
 
                         foreach (var row in kospiRows)
-                            AddSectorData(sectorSupply, sectorNameMap, sectorMarketMap, row, d, "KOSPI");
+                            AddSectorData(sectorSupply, sectorNameMap, sectorMarketMap, row, dTrade, "KOSPI");
                         foreach (var row in kosdaqRows)
-                            AddSectorData(sectorSupply, sectorNameMap, sectorMarketMap, row, d, "KOSDAQ");
+                            AddSectorData(sectorSupply, sectorNameMap, sectorMarketMap, row, dTrade, "KOSDAQ");
 
                         if (actualTradingDays.Count <= 2 || actualTradingDays.Count % 5 == 0)
                             LogMsg($"  {dateStr}: 코스피 {kospiRows.Count}업종, 코스닥 {kosdaqRows.Count}업종 [{actualTradingDays.Count}/{TARGET_DAYS}]");
-                        d = d.AddDays(-1);
+
+                        d = dTrade.AddDays(-1);
                     }
 
                     int nKospi = sectorMarketMap.Values.Count(v => v == "KOSPI");
@@ -147,46 +154,52 @@ namespace StockAnalyzer.Scoring
                 foreach (var kv in sectorSupply)
                     kv.Value.Sort((a, b) => b.Date.CompareTo(a.Date));
 
-                // ── 업종이름 → opt10051 코드 역맵 ──────────────────
-                var sectorNameToCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                // ── 업종이름 → opt10051 복합키 역맵 (시장 포함) ──────
+                var sectorNameToKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var kv in sectorNameMap)
                 {
+                    var market = sectorMarketMap.TryGetValue(kv.Key, out var m) ? m : "KOSPI";
                     var name = NormalizeSectorName(kv.Value);
-                    if (!string.IsNullOrEmpty(name) && !sectorNameToCode.ContainsKey(name))
-                        sectorNameToCode[name] = kv.Key;
+                    var key = SectorNameMapKey(market, name);
+                    if (!string.IsNullOrEmpty(name) && !sectorNameToKey.ContainsKey(key))
+                        sectorNameToKey[key] = kv.Key;
                 }
 
                 // ── 4. 업종 PER/PBR 조회 (opt20001) ─────────────
                 LogMsg("▶ 업종 PER/PBR 조회 (opt20001)...");
-                var sectorFunds = new Dictionary<string, SectorFundamental>();
+                var sectorFunds = new Dictionary<string, SectorFundamental>(); // key=market|sectorCode
 
-                // 종목들이 속한 업종 목록 수집
-                var neededSectors = new HashSet<string>();
+                // 종목들이 속한 업종 목록 수집 (시장 포함)
+                var neededSectorKeys = new HashSet<string>();
                 foreach (var code in codes)
                 {
                     if (stockSectorMap.TryGetValue(code, out var secName))
                     {
+                        var market = stockMarketMap.TryGetValue(code, out var mkt) ? mkt : (stockInfos.TryGetValue(code, out var si) ? si.Market : "KOSPI");
                         var norm = NormalizeSectorName(secName);
-                        if (sectorNameToCode.TryGetValue(norm, out var secCode))
-                            neededSectors.Add(secCode);
+                        if (sectorNameToKey.TryGetValue(SectorNameMapKey(market, norm), out var secKey))
+                            neededSectorKeys.Add(secKey);
                     }
                 }
 
-                // 첫 업종 덤프 제거 (속도 향상)
-                foreach (var secCode in neededSectors)
+                foreach (var secKey in neededSectorKeys)
                 {
                     ct.ThrowIfCancellationRequested();
-                    var mktType = sectorMarketMap.TryGetValue(secCode, out var m) && m == "KOSDAQ" ? "1" : "0";
+
+                    string market = sectorMarketMap.TryGetValue(secKey, out var m) ? m : "KOSPI";
+                    string secCode = RawSectorCode(secKey);
+                    var mktType = market == "KOSDAQ" ? "1" : "0";
 
                     var sf = await kiwoom.GetSectorPerPbrAsync(secCode, mktType);
-                    sf.SectorName = sectorNameMap.TryGetValue(secCode, out var sn) ? sn : secCode;
-                    sectorFunds[secCode] = sf;
+                    sf.SectorCode = secCode;
+                    sf.SectorName = sectorNameMap.TryGetValue(secKey, out var sn) ? sn : secCode;
+                    sectorFunds[secKey] = sf;
 
                     if (sf.AvgPer.HasValue || sf.AvgPbr.HasValue)
-                        LogMsg($"  {sf.SectorName}: PER={sf.AvgPer?.ToString("F2") ?? "-"}, PBR={sf.AvgPbr?.ToString("F2") ?? "-"}");
+                        LogMsg($"  [{market}] {sf.SectorName}: PER={sf.AvgPer?.ToString("F2") ?? "-"}, PBR={sf.AvgPbr?.ToString("F2") ?? "-"}");
                 }
 
-                if (sectorFunds.Count == 0 || sectorFunds.Values.All(f => !f.AvgPer.HasValue))
+                if (sectorFunds.Count == 0 || sectorFunds.Values.All(f => !f.AvgPer.HasValue && !f.AvgPbr.HasValue))
                     LogMsg("  ⚠ 업종 PER/PBR 데이터를 가져오지 못했습니다.");
                 else
                     LogMsg($"  ✓ {sectorFunds.Count}개 업종 PER/PBR 조회 완료");
@@ -217,7 +230,7 @@ namespace StockAnalyzer.Scoring
                                 if (b.MarketCap <= 0) b.MarketCap = fund.MarketCap;
                         }
 
-                        // 현재가 보정 (금액→수량 환산용)
+                        // 현재가 보정 (금액→수량 환산용 표시에 사용)
                         if (info.CurrentPrice <= 0 && bars.Count > 0)
                         {
                             var b0 = bars[0];
@@ -225,23 +238,27 @@ namespace StockAnalyzer.Scoring
                                 info.CurrentPrice = b0.TradeAmount / b0.Volume;
                         }
 
-                        // 업종수급 매칭
+                        // 업종수급 매칭 (시장 포함 복합키 우선)
                         List<SectorSupplyDay> ss = null;
-                        string matchedSector = null;
+                        string matchedSectorKey = null;
                         SectorFundamental sf = null;
 
                         if (!string.IsNullOrEmpty(info.SectorName))
                         {
                             var normName = NormalizeSectorName(info.SectorName);
-                            if (sectorNameToCode.TryGetValue(normName, out var sCode))
+                            var nameKey = SectorNameMapKey(info.Market, normName);
+                            if (sectorNameToKey.TryGetValue(nameKey, out var sKey))
                             {
-                                if (sectorSupply.TryGetValue(sCode, out ss))
-                                    matchedSector = sCode;
-                                sectorFunds.TryGetValue(sCode, out sf);
+                                if (sectorSupply.TryGetValue(sKey, out ss))
+                                    matchedSectorKey = sKey;
+                                sectorFunds.TryGetValue(sKey, out sf);
                             }
                         }
 
-                        LogMsg($"    업종: {info.SectorName} → [{matchedSector ?? "없음"}] ({(ss?.Count ?? 0)}일) PER={sf?.AvgPer?.ToString("F1") ?? "-"}");
+                        if (matchedSectorKey != null)
+                            info.SectorCode = RawSectorCode(matchedSectorKey);
+
+                        LogMsg($"    업종: {info.SectorName} / {info.Market} → [{(matchedSectorKey != null ? RawSectorCode(matchedSectorKey) : "없음")}] ({(ss?.Count ?? 0)}일) PER={sf?.AvgPer?.ToString("F1") ?? "-"}");
 
                         var result = StockScorer.Calculate(
                             info, fund, sf, investors, bars,
@@ -270,11 +287,11 @@ namespace StockAnalyzer.Scoring
                     if (recent5.Count == 0) continue;
 
                     string market = sectorMarketMap.TryGetValue(kv.Key, out var mm) ? mm : "KOSPI";
-                    string sName = sectorNameMap.TryGetValue(kv.Key, out var n) ? n : kv.Key;
+                    string sName = sectorNameMap.TryGetValue(kv.Key, out var n) ? n : RawSectorCode(kv.Key);
 
                     var summary = new SectorSupplySummary
                     {
-                        SectorCode = kv.Key,
+                        SectorCode = RawSectorCode(kv.Key),
                         SectorName = sName,
                         Market = market,
                         ForeignNet5D = recent5.Sum(dd => dd.ForeignNet),
@@ -303,21 +320,36 @@ namespace StockAnalyzer.Scoring
             Dictionary<string, string> sectorMarketMap,
             SectorInvestorRow row, DateTime date, string market)
         {
-            if (!sectorSupply.ContainsKey(row.SectorCode))
-                sectorSupply[row.SectorCode] = new List<SectorSupplyDay>();
+            var key = SectorCompositeKey(market, row.SectorCode);
 
-            sectorSupply[row.SectorCode].Add(new SectorSupplyDay
+            if (!sectorSupply.ContainsKey(key))
+                sectorSupply[key] = new List<SectorSupplyDay>();
+
+            sectorSupply[key].Add(new SectorSupplyDay
             {
                 Date = date,
                 ForeignNet = row.ForeignNet,
                 InstNet = row.InstNet,
             });
 
-            if (!sectorNameMap.ContainsKey(row.SectorCode))
-                sectorNameMap[row.SectorCode] = row.SectorName;
+            if (!sectorNameMap.ContainsKey(key))
+                sectorNameMap[key] = row.SectorName;
 
-            if (!sectorMarketMap.ContainsKey(row.SectorCode))
-                sectorMarketMap[row.SectorCode] = market;
+            if (!sectorMarketMap.ContainsKey(key))
+                sectorMarketMap[key] = market;
+        }
+
+        private static string SectorCompositeKey(string market, string sectorCode)
+            => $"{(market ?? "KOSPI").Trim().ToUpperInvariant()}|{(sectorCode ?? "").Trim()}";
+
+        private static string SectorNameMapKey(string market, string normalizedSectorName)
+            => $"{(market ?? "KOSPI").Trim().ToUpperInvariant()}|{normalizedSectorName ?? ""}";
+
+        private static string RawSectorCode(string compositeKey)
+        {
+            if (string.IsNullOrWhiteSpace(compositeKey)) return "";
+            var idx = compositeKey.IndexOf('|');
+            return idx >= 0 ? compositeKey.Substring(idx + 1) : compositeKey;
         }
 
         // ── KOA_Functions 파싱 ────────────────────────────────────

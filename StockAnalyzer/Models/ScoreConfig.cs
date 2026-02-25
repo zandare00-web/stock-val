@@ -6,57 +6,37 @@ namespace StockAnalyzer.Models
 {
     public class ScoreConfig
     {
-        // ── 기업가치 ─────────────────────────────────────────────
-        public double PerScore  { get; set; } = 10.0;  // PER 할인율 만점
-        public double PbrScore  { get; set; } = 8.0;   // PBR 할인율 만점
-        public double RoeScore  { get; set; } = 7.0;   // ROE 만점
+        // ── 기업가치 (총 5점) ────────────────────────────────────
+        public double PerScore { get; set; } = 2.0;
+        public double PbrScore { get; set; } = 1.5;
+        public double RoeScore { get; set; } = 1.5;
 
-        // ── 종목수급 ─────────────────────────────────────────────
-        public double ForeignD1Score  { get; set; } = 10.0;  // 외국인 당일
-        public double Foreign5DScore  { get; set; } = 10.0;  // 외국인 5일
-        public double Foreign20DScore { get; set; } = 10.0;  // 외국인 20일
-        public double InstD1Score     { get; set; } = 10.0;  // 기관 당일
-        public double Inst5DScore     { get; set; } = 10.0;  // 기관 5일
-        public double Inst20DScore    { get; set; } = 10.0;  // 기관 20일
-        public double TurnoverScore   { get; set; } = 10.0;  // 거래회전율 추세
+        // ── 종목수급 (총 55점) ───────────────────────────────────
+        // 외국인+기관 합계 기준
+        public double Supply5DScore { get; set; } = 15.0;  // 합계 5일
+        public double Supply10DScore { get; set; } = 15.0;  // 합계 10일
+        public double Supply20DScore { get; set; } = 15.0;  // 합계 20일
+        public double TurnoverScore { get; set; } = 10.0;  // 거래회전율 추세
 
-        // ── 업종수급 ─────────────────────────────────────────────
-        public double SectorForeignD1Score  { get; set; } = 5.0;
-        public double SectorForeign5DScore  { get; set; } = 5.0;
-        public double SectorForeign20DScore { get; set; } = 5.0;
-        public double SectorInstD1Score     { get; set; } = 5.0;
-        public double SectorInst5DScore     { get; set; } = 5.0;
-        public double SectorInst20DScore    { get; set; } = 5.0;
+        // ── 업종수급 (총 40점) ───────────────────────────────────
+        // 외국인+기관 합계 기준
+        public double SectorSupply5DScore { get; set; } = 20.0;  // 합계 5일
+        public double SectorSupply10DScore { get; set; } = 20.0;  // 합계 10일
 
-        // ── 수급강도 추세 기준 ───────────────────────────────────
-        public double TrendThresholdPct { get; set; } = 10.0;  // 보합 기준 (%)
+        // ── 기준값 ──────────────────────────────────────────────
+        public double TrendThresholdPct { get; set; } = 10.0;
+        public double TurnoverFullPct { get; set; } = 50.0;
 
-        // ── 거래회전율 만점 기준 ─────────────────────────────────
-        public double TurnoverFullPct { get; set; } = 50.0;  // 20일이 60일 대비 50% 이상 증가시 만점
-
-        // ── KRX Open API 인증키 ─────────────────────────────────
+        // ── KRX Open API ────────────────────────────────────────
         public string KrxAuthKey { get; set; } = "76180EC87B174F449DC331AE0B81158861A1136B";
 
-        // ── 집계 ─────────────────────────────────────────────────
-        [JsonIgnore]
-        public double TotalValueScore =>
-            PerScore + PbrScore + RoeScore;
+        // ── 집계 ────────────────────────────────────────────────
+        [JsonIgnore] public double TotalValueScore => PerScore + PbrScore + RoeScore;
+        [JsonIgnore] public double TotalStockSupplyScore => Supply5DScore + Supply10DScore + Supply20DScore + TurnoverScore;
+        [JsonIgnore] public double TotalSectorSupplyScore => SectorSupply5DScore + SectorSupply10DScore;
+        [JsonIgnore] public double TotalMaxScore => TotalValueScore + TotalStockSupplyScore + TotalSectorSupplyScore;
 
-        [JsonIgnore]
-        public double TotalStockSupplyScore =>
-            ForeignD1Score + Foreign5DScore + Foreign20DScore +
-            InstD1Score + Inst5DScore + Inst20DScore + TurnoverScore;
-
-        [JsonIgnore]
-        public double TotalSectorSupplyScore =>
-            SectorForeignD1Score + SectorForeign5DScore + SectorForeign20DScore +
-            SectorInstD1Score + SectorInst5DScore + SectorInst20DScore;
-
-        [JsonIgnore]
-        public double TotalMaxScore =>
-            TotalValueScore + TotalStockSupplyScore + TotalSectorSupplyScore;
-
-        // ── 저장/불러오기 ────────────────────────────────────────
+        // ── 저장/불러오기 ───────────────────────────────────────
         private static readonly string _path = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "StockAnalyzer", "score_config.json");

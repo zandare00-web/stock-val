@@ -135,6 +135,8 @@ namespace StockAnalyzer.Forms
         static readonly Color GRID_ALT = Color.White;
         static readonly Color GRID_LN = Color.FromArgb(238, 242, 246);
         static readonly Color GRID_SEL = Color.FromArgb(238, 242, 255);
+        static readonly Color UP_RED = Color.FromArgb(153, 27, 27);      // 진한 붉은색(상승)
+        static readonly Color DOWN_BLUE = Color.FromArgb(30, 64, 175);   // 진한 파란색(하락)
 
         // ── 상태 ──
         AxKHOpenAPI _ax;
@@ -276,27 +278,27 @@ namespace StockAnalyzer.Forms
 
         Control BuildP2()
         {
-            // ★ 새 그리드: 종목수급/업종수급 제거, 외국인/기관 2단(5D/10D 수량), 거래량 추가
+            // ★ 새 그리드: 3단 헤더 (수급(수량) → 외국인/기관 → 5일/10일)
             _gResult = MkGrid(
-                ("순위", "Rank", 36),
-                ("종목", "Name", 80),
-                ("시장", "MarketType", 46),
-                ("총점", "TotalScore", 44),
-                ("외국인", "Foreign", 82),      // 5D/10D 2단 표시
-                ("기관", "Inst", 82),            // 5D/10D 2단 표시
-                ("추세", "SupplyTrendStr", 48),
-                ("업종", "SectorName", 70),
-                ("거래량", "VolTrendStr", 48));   // 상승/하락/보합
+                ("순위", "Rank", 32),
+                ("종목", "Name", 78),
+                ("총점", "TotalScore", 40),
+                ("5일", "F5D", 56),         // 외국인 5일
+                ("10일", "F10D", 56),        // 외국인 10일
+                ("5일", "I5D", 56),          // 기관 5일
+                ("10일", "I10D", 56),        // 기관 10일
+                ("추세", "Trend", 42),
+                ("거래량\n(20/60)", "Vol", 52),
+                ("업종", "Sector", 60));
 
-            // ★ 행 높이 증가 (2단 표시용)
-            _gResult.RowTemplate.Height = 44;
-
-            // 2단 표시를 위해 WrapMode 설정
-            _gResult.DefaultCellStyle.WrapMode = DataGridViewTriState.True;
+            _gResult.ColumnHeadersHeight = 54;
+            _gResult.ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing;
+            _gResult.RowTemplate.Height = 30;
 
             _gResult.SelectionChanged += GRSel;
             _gResult.CellFormatting += GRFmt;
-            _gResult.CellPainting += GRPaint;
+            _gResult.CellPainting += GRCellPaint;   // 하단 5일/10일 텍스트 위치
+            _gResult.Paint += GRHeaderPaint;          // 상단 그룹 라벨 오버레이
             return _gResult;
         }
 
@@ -309,6 +311,7 @@ namespace StockAnalyzer.Forms
 
             _gSector = MkGrid(("업종", "SectorName", 80), ("시장", "Market", 40),
                 ("외국인", "ForeignNet5DB", 65), ("기관", "InstNet5DB", 65), ("합산", "TotalNet5DB", 65));
+            _gSector.CellFormatting += SectorFmt;
             sp.Controls.Add(WCard("SECTOR TREND", _gSector, 0, 0, 0, 4), 0, 0);
 
             _pDetail = new Panel { Dock = DockStyle.Fill, BackColor = CARD_BG, AutoScroll = true };
@@ -333,25 +336,19 @@ namespace StockAnalyzer.Forms
 
         // ═══════════════ 이벤트 핸들러 ═══════════════════════════
 
-        void BtnLogin_Click(object s, EventArgs e)
+        async void BtnLogin_Click(object s, EventArgs e)
         {
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                using (var k = new KiwoomClient(_ax))
                 {
-                    using (var k = new KiwoomClient(_ax))
-                    {
-                        InvUI(() => { _lblLogin.Text = "⏳ 로그인 중..."; _lblLogin.ForeColor = AMBER; });
-                        await k.LoginAsync();
-                        InvUI(() =>
-                        {
-                            _lblLogin.Text = "● 연결됨"; _lblLogin.ForeColor = GREEN;
-                            _ = LoadConditions();
-                        });
-                    }
+                    _lblLogin.Text = "⏳ 로그인 중..."; _lblLogin.ForeColor = AMBER;
+                    await k.LoginAsync();
+                    _lblLogin.Text = "● 연결됨"; _lblLogin.ForeColor = GREEN;
+                    await LoadConditions();
                 }
-                catch (Exception ex) { InvUI(() => { _lblLogin.Text = $"✗ {ex.Message}"; _lblLogin.ForeColor = CORAL; }); }
-            });
+            }
+            catch (Exception ex) { _lblLogin.Text = $"✗ {ex.Message}"; _lblLogin.ForeColor = CORAL; }
         }
 
         async Task LoadConditions()
@@ -423,14 +420,15 @@ namespace StockAnalyzer.Forms
             {
                 var cfg = ScoreConfig.Load();
                 var engine = new AnalysisEngine(_ax);
-                engine.Log += msg => InvUI(() => { _lblProg.Text = msg; System.Diagnostics.Debug.WriteLine(msg); });
-                engine.Progress += (cur, tot, nm) => InvUI(() =>
+                engine.Log += msg => { _lblProg.Text = msg; System.Diagnostics.Debug.WriteLine(msg); };
+                engine.Progress += (cur, tot, nm) =>
                 {
                     _bar.Value = cur * 100 / tot; _bar.Invalidate();
                     _lblProg.Text = $"{nm} ({cur}/{tot})";
-                });
+                };
 
-                var (results, sK, sD) = await Task.Run(() => engine.RunAsync(_codes, cfg, _cts.Token));
+                // ★ UI 스레드에서 직접 실행 (Task.Run 금지 - OCX COM 이벤트 스레드 안전성)
+                var (results, sK, sD) = await engine.RunAsync(_codes, cfg, _cts.Token);
 
                 _res = results; _sK = sK; _sD = sD;
                 FillResult(); FillSector(); FillStock();
@@ -448,62 +446,167 @@ namespace StockAnalyzer.Forms
             if (e.RowIndex < 0 || e.RowIndex >= _res.Count) return;
             var r = _res[e.RowIndex]; var col = _gResult.Columns[e.ColumnIndex].Name;
 
-            if (col == "MarketType")
-            {
-                var m = e.Value?.ToString() ?? "";
-                if (m.Contains("KOSPI") || m.Contains("코스피")) e.CellStyle.ForeColor = TEAL_D;
-                else if (m.Contains("KOSDAQ") || m.Contains("코스닥")) e.CellStyle.ForeColor = Color.FromArgb(234, 88, 12);
-            }
             if (col == "TotalScore")
                 e.CellStyle.ForeColor = r.TotalScore >= 80 ? GREEN : r.TotalScore >= 50 ? TEAL_D : r.TotalScore >= 30 ? AMBER : CORAL;
-            if (col == "SupplyTrendStr")
-                e.CellStyle.ForeColor = r.SupplyTrend == SupplyTrend.상승 || r.SupplyTrend == SupplyTrend.상승반전 ? GREEN : r.SupplyTrend == SupplyTrend.하락 ? CORAL : r.SupplyTrend == SupplyTrend.하락반전 ? AMBER : TXT_MUTE;
-            if (col == "VolTrendStr")
-                e.CellStyle.ForeColor = r.VolTrend == VolTrend.상승 ? GREEN : r.VolTrend == VolTrend.하락 ? CORAL : TXT_MUTE;
+
+            // 외국인/기관 수량(환산) 색상: 상승(+) 진한 빨강 / 하락(-) 진한 파랑 + 굵게
+            if (col == "F5D" || col == "F10D" || col == "I5D" || col == "I10D")
+            {
+                var v = e.Value?.ToString() ?? "";
+                if (v.StartsWith("+")) e.CellStyle.ForeColor = UP_RED;
+                else if (v.StartsWith("-")) e.CellStyle.ForeColor = DOWN_BLUE;
+                else e.CellStyle.ForeColor = TXT_MUTE;
+                e.CellStyle.Font = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+            }
+
+            if (col == "Trend")
+            {
+                if (r.SupplyTrend == SupplyTrend.상승 || r.SupplyTrend == SupplyTrend.상승반전) e.CellStyle.ForeColor = UP_RED;
+                else if (r.SupplyTrend == SupplyTrend.하락 || r.SupplyTrend == SupplyTrend.하락반전) e.CellStyle.ForeColor = DOWN_BLUE;
+                else e.CellStyle.ForeColor = TXT_MUTE;
+                e.CellStyle.Font = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+            }
+
+            if (col == "Vol")
+            {
+                if (r.VolTrend == VolTrend.상승) e.CellStyle.ForeColor = UP_RED;
+                else if (r.VolTrend == VolTrend.하락) e.CellStyle.ForeColor = DOWN_BLUE;
+                else e.CellStyle.ForeColor = TXT_MUTE;
+                e.CellStyle.Font = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+            }
         }
 
-        /// <summary>외국인/기관 셀 커스텀 페인팅 (2단: 5D/10D 수량 환산)</summary>
-        void GRPaint(object s, DataGridViewCellPaintingEventArgs e)
+        void SectorFmt(object s, DataGridViewCellFormattingEventArgs e)
         {
-            if (e.RowIndex < 0 || e.RowIndex >= _res.Count) return;
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            var row = _gSector.Rows[e.RowIndex];
+            var sectorName = row.Cells["SectorName"]?.Value?.ToString() ?? "";
+            bool isGroupRow = sectorName.StartsWith("■ ");
+
+            if (isGroupRow)
+            {
+                e.CellStyle.BackColor = Color.FromArgb(248, 250, 252);
+                e.CellStyle.SelectionBackColor = e.CellStyle.BackColor;
+                e.CellStyle.ForeColor = TXT_SEC;
+                e.CellStyle.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+                return;
+            }
+
+            var col = _gSector.Columns[e.ColumnIndex].Name;
+            if (col == "ForeignNet5DB" || col == "InstNet5DB" || col == "TotalNet5DB")
+            {
+                var v = e.Value?.ToString() ?? "";
+                if (v.StartsWith("+")) e.CellStyle.ForeColor = UP_RED;
+                else if (v.StartsWith("-")) e.CellStyle.ForeColor = DOWN_BLUE;
+                else e.CellStyle.ForeColor = TXT_MUTE;
+                e.CellStyle.Font = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+            }
+        }
+
+        /// <summary>헤더 하단 "5일"/"10일" 텍스트를 하단 1/3에 배치, "추세"는 오버레이에서 처리</summary>
+        void GRCellPaint(object s, DataGridViewCellPaintingEventArgs e)
+        {
+            if (e.RowIndex != -1) return; // 헤더만
             var col = _gResult.Columns[e.ColumnIndex].Name;
-            if (col != "Foreign" && col != "Inst") return;
+            if (col != "F5D" && col != "F10D" && col != "I5D" && col != "I10D" && col != "Trend") return;
 
             e.Handled = true;
-            e.PaintBackground(e.ClipBounds, e.State.HasFlag(DataGridViewElementStates.Selected));
-
-            var r = _res[e.RowIndex];
-            long v5, v10;
-            if (col == "Foreign") { v5 = r.ForeignNet5D; v10 = r.ForeignNet10D; }
-            else { v5 = r.InstNet5D; v10 = r.InstNet10D; }
-
-            // 금액(원) → 수량(주) 환산
-            double price = r.CurrentPrice > 0 ? r.CurrentPrice : 1;
-            long q5 = (long)(v5 / price);
-            long q10 = (long)(v10 / price);
-
             var rect = e.CellBounds;
-            using (var fSmall = new Font("Segoe UI", 7.5f))
-            using (var fLabel = new Font("Segoe UI", 7f))
+
+            // 배경 + 테두리
+            using (var bg = new SolidBrush(GRID_HDR))
+                e.Graphics.FillRectangle(bg, rect);
+            using (var pen = new Pen(GRID_LN))
             {
-                int midY = rect.Y + rect.Height / 2;
-
-                // 상단: 5D
-                var s5 = FQ(q5);
-                var c5 = q5 > 0 ? GREEN : q5 < 0 ? CORAL : TXT_MUTE;
-                var r5 = new Rectangle(rect.X + 2, rect.Y + 2, rect.Width - 4, rect.Height / 2 - 2);
-                TextRenderer.DrawText(e.Graphics, "5D", fLabel, new Point(r5.X, r5.Y + 2), TXT_MUTE);
-                TextRenderer.DrawText(e.Graphics, s5, fSmall, r5, c5,
-                    TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
-
-                // 하단: 10D
-                var s10 = FQ(q10);
-                var c10 = q10 > 0 ? GREEN : q10 < 0 ? CORAL : TXT_MUTE;
-                var r10 = new Rectangle(rect.X + 2, midY, rect.Width - 4, rect.Height / 2 - 2);
-                TextRenderer.DrawText(e.Graphics, "10D", fLabel, new Point(r10.X, r10.Y + 2), TXT_MUTE);
-                TextRenderer.DrawText(e.Graphics, s10, fSmall, r10, c10,
-                    TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+                e.Graphics.DrawLine(pen, rect.Right - 1, rect.Top, rect.Right - 1, rect.Bottom);
+                e.Graphics.DrawLine(pen, rect.Left, rect.Bottom - 1, rect.Right, rect.Bottom - 1);
             }
+
+            if (col == "Trend") return; // "추세"는 Paint 오버레이에서 통합 그림
+
+            // "5일"/"10일"을 하단 1/3에 배치
+            int row3Y = rect.Y + (rect.Height * 2 / 3);
+            int row3H = rect.Height - (rect.Height * 2 / 3);
+            var r3 = new Rectangle(rect.X, row3Y, rect.Width, row3H);
+
+            string txt = (col == "F5D" || col == "I5D") ? "5일" : "10일";
+            using (var f = new Font("Segoe UI", 7.5f, FontStyle.Bold))
+                TextRenderer.DrawText(e.Graphics, txt, f, r3, TXT_SEC,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        }
+
+        /// <summary>3단 그룹 헤더를 Paint 오버레이로 그림 (CellPainting은 셀 바깥 클리핑됨)</summary>
+        void GRHeaderPaint(object s, PaintEventArgs e)
+        {
+            if (_gResult.Columns.Count < 7) return;
+
+            var g = e.Graphics;
+            // 컬럼 좌표 계산 (스크롤 고려)
+            int GetColLeft(string name)
+            {
+                int x = _gResult.RowHeadersVisible ? _gResult.RowHeadersWidth : 0;
+                for (int i = 0; i < _gResult.Columns.Count; i++)
+                {
+                    if (_gResult.Columns[i].Name == name) return x - _gResult.HorizontalScrollingOffset;
+                    if (_gResult.Columns[i].Visible) x += _gResult.Columns[i].Width;
+                }
+                return x;
+            }
+            int GetColW(string name) => _gResult.Columns[name].Visible ? _gResult.Columns[name].Width : 0;
+
+            int hdrH = _gResult.ColumnHeadersHeight;
+            int row1H = hdrH / 3;
+            int row2H = hdrH / 3;
+            int row3H = hdrH - row1H - row2H;
+
+            int xF5D = GetColLeft("F5D");
+            int xI5D = GetColLeft("I5D");
+            int xTrend = GetColLeft("Trend");
+            int wF = GetColW("F5D") + GetColW("F10D");
+            int wI = GetColW("I5D") + GetColW("I10D");
+            int wTrend = GetColW("Trend");
+            int totalW = wF + wI + wTrend;
+
+            var hdrFont = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+            var grpFont = new Font("Segoe UI", 8f, FontStyle.Bold);
+
+            // Row 1: "수급(수량)" 전체 그룹
+            var grpRect = new Rectangle(xF5D, 0, totalW, row1H);
+            using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, grpRect);
+            TextRenderer.DrawText(g, "수급(수량·1주)", grpFont, grpRect, TXT_SEC,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            using (var pen = new Pen(GRID_LN))
+                g.DrawLine(pen, xF5D, row1H, xF5D + totalW, row1H);
+
+            // Row 2: "외국인" | "기관" | "추세"
+            var fRect = new Rectangle(xF5D, row1H, wF, row2H);
+            using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, fRect);
+            TextRenderer.DrawText(g, "외국인", hdrFont, fRect, TXT_SEC,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+
+            var iRect = new Rectangle(xI5D, row1H, wI, row2H);
+            using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, iRect);
+            TextRenderer.DrawText(g, "기관", hdrFont, iRect, TXT_SEC,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+
+            // "추세"는 row2+row3 통합
+            var tRect = new Rectangle(xTrend, row1H, wTrend, row2H + row3H);
+            using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, tRect);
+            TextRenderer.DrawText(g, "추세", hdrFont, tRect, TXT_SEC,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+
+            // 구분선
+            using (var pen = new Pen(GRID_LN))
+            {
+                g.DrawLine(pen, xF5D, row1H + row2H, xF5D + wF, row1H + row2H);
+                g.DrawLine(pen, xI5D, row1H + row2H, xI5D + wI, row1H + row2H);
+                // 세로 구분선
+                g.DrawLine(pen, xI5D, row1H, xI5D, row1H + row2H);
+                g.DrawLine(pen, xTrend, row1H, xTrend, hdrH);
+            }
+
+            hdrFont.Dispose();
+            grpFont.Dispose();
         }
 
         // ── 데이터 갱신 ──
@@ -514,16 +617,18 @@ namespace StockAnalyzer.Forms
             for (int i = 0; i < _res.Count; i++)
             {
                 var r = _res[i];
+                double px = r.CurrentPrice > 0 ? r.CurrentPrice : 1;
                 _gResult.Rows.Add(
                     i + 1,
                     r.Name,
-                    r.Market ?? "",
                     r.TotalScore.ToString("F1"),
-                    "",                          // Foreign (custom painted)
-                    "",                          // Inst (custom painted)
-                    r.SupplyTrend.ToString(),
-                    r.SectorName,
-                    r.VolTrend.ToString(),
+                    FQ1((long)Math.Round(r.ForeignNet5D / px)),   // F5D (수량 1주 단위 환산)
+                    FQ1((long)Math.Round(r.ForeignNet10D / px)),  // F10D
+                    FQ1((long)Math.Round(r.InstNet5D / px)),      // I5D
+                    FQ1((long)Math.Round(r.InstNet10D / px)),     // I10D
+                    r.SupplyTrend.ToString(),             // Trend
+                    r.VolTrend.ToString(),                // Vol (20/60)
+                    r.SectorName,                         // Sector
                     r.Code);
             }
         }
@@ -531,8 +636,40 @@ namespace StockAnalyzer.Forms
         void FillSector()
         {
             _gSector.Rows.Clear();
-            foreach (var x in _sK.Concat(_sD).OrderByDescending(x => x.TotalNet5D))
-                _gSector.Rows.Add(x.SectorName, x.Market, FA(x.ForeignNet5D), FA(x.InstNet5D), FA(x.TotalNet5D));
+
+            void AddSectorBlock(string title, IEnumerable<SectorSupplySummary> items)
+            {
+                var list = (items ?? Enumerable.Empty<SectorSupplySummary>()).ToList();
+                if (list.Count == 0) return;
+
+                int hdrIdx = _gSector.Rows.Add("■ " + title, "", "", "", "");
+                var hdrRow = _gSector.Rows[hdrIdx];
+                hdrRow.DefaultCellStyle.BackColor = Color.FromArgb(248, 250, 252);
+                hdrRow.DefaultCellStyle.SelectionBackColor = hdrRow.DefaultCellStyle.BackColor;
+                hdrRow.DefaultCellStyle.ForeColor = TXT_SEC;
+                hdrRow.DefaultCellStyle.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+
+                foreach (var x in list.OrderByDescending(x => x.TotalNet5D))
+                    _gSector.Rows.Add(x.SectorName, x.Market, FA(x.ForeignNet5D), FA(x.InstNet5D), FA(x.TotalNet5D));
+
+                _gSector.Rows.Add("", "", "", "", ""); // 시각 구분용 빈 줄
+                var gap = _gSector.Rows[_gSector.Rows.Count - 1];
+                gap.DefaultCellStyle.BackColor = CARD_BG;
+                gap.DefaultCellStyle.SelectionBackColor = CARD_BG;
+                gap.Height = 6;
+            }
+
+            AddSectorBlock("KOSPI", _sK);
+            AddSectorBlock("KOSDAQ", _sD);
+
+            // 마지막 빈 줄 제거 (있으면)
+            if (_gSector.Rows.Count > 0)
+            {
+                var last = _gSector.Rows[_gSector.Rows.Count - 1];
+                bool isBlank = string.IsNullOrWhiteSpace(Convert.ToString(last.Cells["SectorName"].Value))
+                            && string.IsNullOrWhiteSpace(Convert.ToString(last.Cells["Market"].Value));
+                if (isBlank) _gSector.Rows.RemoveAt(_gSector.Rows.Count - 1);
+            }
         }
 
         void FillStock()
@@ -590,7 +727,7 @@ namespace StockAnalyzer.Forms
 
             try
             {
-                var data = await Task.Run(() => _consensus.GetConsensusAsync(r.Code));
+                var data = await _consensus.GetConsensusAsync(r.Code);
 
                 if (data != null && data.IsValid)
                 {
@@ -664,20 +801,20 @@ namespace StockAnalyzer.Forms
 
             // ★ 수량 환산 (금액÷현재가)
             double px = r.CurrentPrice > 0 ? r.CurrentPrice : 1;
-            fl.Controls.Add(DR("외국인 당일", FQ((long)(r.ForeignNetD1 / px)), NQ(r.ForeignNetD1)));
-            fl.Controls.Add(DR("외국인 5일", FQ((long)(r.ForeignNet5D / px)), NQ(r.ForeignNet5D)));
-            fl.Controls.Add(DR("외국인 10일", FQ((long)(r.ForeignNet10D / px)), NQ(r.ForeignNet10D)));
-            fl.Controls.Add(DR("외국인 20일", FQ((long)(r.ForeignNet20D / px)), NQ(r.ForeignNet20D)));
-            fl.Controls.Add(DR("기관 당일", FQ((long)(r.InstNetD1 / px)), NQ(r.InstNetD1)));
-            fl.Controls.Add(DR("기관 5일", FQ((long)(r.InstNet5D / px)), NQ(r.InstNet5D)));
-            fl.Controls.Add(DR("기관 10일", FQ((long)(r.InstNet10D / px)), NQ(r.InstNet10D)));
-            fl.Controls.Add(DR("기관 20일", FQ((long)(r.InstNet20D / px)), NQ(r.InstNet20D)));
+            fl.Controls.Add(DR("외국인 당일", FQ((long)(r.ForeignNetD1 / px)), NQ(r.ForeignNetD1), true));
+            fl.Controls.Add(DR("외국인 5일", FQ((long)(r.ForeignNet5D / px)), NQ(r.ForeignNet5D), true));
+            fl.Controls.Add(DR("외국인 10일", FQ((long)(r.ForeignNet10D / px)), NQ(r.ForeignNet10D), true));
+            fl.Controls.Add(DR("외국인 20일", FQ((long)(r.ForeignNet20D / px)), NQ(r.ForeignNet20D), true));
+            fl.Controls.Add(DR("기관 당일", FQ((long)(r.InstNetD1 / px)), NQ(r.InstNetD1), true));
+            fl.Controls.Add(DR("기관 5일", FQ((long)(r.InstNet5D / px)), NQ(r.InstNet5D), true));
+            fl.Controls.Add(DR("기관 10일", FQ((long)(r.InstNet10D / px)), NQ(r.InstNet10D), true));
+            fl.Controls.Add(DR("기관 20일", FQ((long)(r.InstNet20D / px)), NQ(r.InstNet20D), true));
             fl.Controls.Add(DH());
 
             fl.Controls.Add(DR("거래량20D평균", FVol(r.VolAvg20D)));
             fl.Controls.Add(DR("거래량60D평균", FVol(r.VolAvg60D)));
-            fl.Controls.Add(DR("거래량추세", r.VolTrend.ToString(), r.VolTrend == VolTrend.상승 ? GREEN : r.VolTrend == VolTrend.하락 ? CORAL : TXT_SEC, true));
-            fl.Controls.Add(DR("수급추세", r.SupplyTrend.ToString(), r.SupplyTrend == SupplyTrend.상승 || r.SupplyTrend == SupplyTrend.상승반전 ? GREEN : r.SupplyTrend == SupplyTrend.하락 ? CORAL : AMBER, true));
+            fl.Controls.Add(DR("거래량추세", r.VolTrend.ToString(), r.VolTrend == VolTrend.상승 ? UP_RED : r.VolTrend == VolTrend.하락 ? DOWN_BLUE : TXT_SEC, true));
+            fl.Controls.Add(DR("수급추세", r.SupplyTrend.ToString(), r.SupplyTrend == SupplyTrend.상승 || r.SupplyTrend == SupplyTrend.상승반전 ? UP_RED : (r.SupplyTrend == SupplyTrend.하락 || r.SupplyTrend == SupplyTrend.하락반전) ? DOWN_BLUE : AMBER, true));
 
             // 컨센서스 섹션
             if (con != null && con.IsValid)
@@ -686,7 +823,7 @@ namespace StockAnalyzer.Forms
                 fl.Controls.Add(DR("컨센서스", con.Opinion ?? "—", ConsensusColor(con.Opinion), true));
                 if (con.TargetPrice.HasValue) fl.Controls.Add(DR("목표가", $"{con.TargetPrice.Value:N0}원"));
                 if (con.TargetPriceMin.HasValue && con.TargetPriceMax.HasValue) fl.Controls.Add(DR("목표가범위", $"{con.TargetPriceMin.Value:N0} ~ {con.TargetPriceMax.Value:N0}원"));
-                if (con.DeviationPct.HasValue) fl.Controls.Add(DR("괴리율", $"{con.DeviationPct.Value:+0.0;-0.0}%", con.DeviationPct > 0 ? GREEN : CORAL));
+                if (con.DeviationPct.HasValue) fl.Controls.Add(DR("괴리율", $"{con.DeviationPct.Value:+0.0;-0.0}%", con.DeviationPct > 0 ? UP_RED : DOWN_BLUE, true));
                 if (con.ConsensusPer.HasValue) fl.Controls.Add(DR("컨센PER", con.ConsensusPer.Value.ToString("F2")));
                 if (con.ConsensusEps.HasValue) fl.Controls.Add(DR("컨센EPS", $"{con.ConsensusEps.Value:N0}원"));
                 fl.Controls.Add(DR("애널리스트", $"{con.AnalystCount}명"));
@@ -757,6 +894,9 @@ namespace StockAnalyzer.Forms
             return v.ToString("+#,0;-#,0");
         }
 
+        /// <summary>수량(주) 포맷: 1주 단위 표시(축약 없음)</summary>
+        static string FQ1(long v) => v.ToString("+#,0;-#,0;0");
+
         /// <summary>거래량 포맷 (평균): 12.3만, 1.2억</summary>
         static string FVol(double v)
         {
@@ -769,7 +909,7 @@ namespace StockAnalyzer.Forms
         /// <summary>업종수급 금액 포맷: +12.3억</summary>
         static string FA(double v) => (v / 1e8).ToString("+#,0.0억;-#,0.0억;0억");
 
-        static Color NQ(long v) => v > 0 ? GREEN : v < 0 ? CORAL : TXT_MUTE;
+        static Color NQ(long v) => v > 0 ? UP_RED : v < 0 ? DOWN_BLUE : TXT_MUTE;
         static Color SC(double s) => s >= 80 ? GREEN : s >= 50 ? TEAL_D : s >= 30 ? AMBER : CORAL;
 
         void SetRun(bool v)

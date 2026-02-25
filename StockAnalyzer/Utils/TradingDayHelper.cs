@@ -31,14 +31,31 @@ namespace StockAnalyzer.Utils
                d.DayOfWeek != DayOfWeek.Sunday   &&
                !_holidays.Contains(d.Date);
 
+        public static DateTime GetPreviousTradingDay(DateTime fromInclusive)
+        {
+            var d = fromInclusive.Date;
+            while (!IsTradingDay(d)) d = d.AddDays(-1);
+            return d;
+        }
+
+        public static DateTime GetLatestCompletedTradingDay(int marketCloseHourLocal = 18)
+        {
+            var d = DateTime.Today;
+            if (DateTime.Now.Hour < marketCloseHourLocal) d = d.AddDays(-1);
+            return GetPreviousTradingDay(d);
+        }
+
         public static List<DateTime> GetRecentTradingDays(int count)
+            => GetRecentTradingDays(count, DateTime.Today, includeIfTradingDay: true);
+
+        public static List<DateTime> GetRecentTradingDays(int count, DateTime fromDate, bool includeIfTradingDay = true)
         {
             var list = new List<DateTime>();
-            var d    = DateTime.Today;
-            // 오늘이 거래일이면 오늘도 포함 (장 마감 후 가정)
+            var d = includeIfTradingDay ? fromDate.Date : fromDate.Date.AddDays(-1);
             while (list.Count < count)
             {
-                if (IsTradingDay(d)) list.Add(d);
+                d = GetPreviousTradingDay(d);
+                list.Add(d);
                 d = d.AddDays(-1);
             }
             return list;  // [0]=최근, [count-1]=가장 오래된

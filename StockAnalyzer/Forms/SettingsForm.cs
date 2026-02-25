@@ -6,9 +6,6 @@ using StockAnalyzer.Models;
 
 namespace StockAnalyzer.Forms
 {
-    // ══════════════════════════════════════════════════════════
-    //  설정 폼 (SettingsForm)
-    // ══════════════════════════════════════════════════════════
     public class SettingsForm : Form
     {
         static readonly Color SIDEBAR = Color.FromArgb(30, 39, 53);
@@ -18,7 +15,6 @@ namespace StockAnalyzer.Forms
         static readonly Color BRD = Color.FromArgb(228, 232, 240);
         static readonly Color TXT = Color.FromArgb(40, 48, 62);
         static readonly Color TXT2 = Color.FromArgb(120, 130, 150);
-        static readonly Color CORAL = Color.FromArgb(233, 87, 87);
 
         ScoreConfig _cfg;
         TableLayoutPanel _tbl;
@@ -53,32 +49,30 @@ namespace StockAnalyzer.Forms
             scroll.Controls.Add(cardOuter);
             root.Controls.Add(scroll, 0, 1);
 
-            Sec("VALUATION — 기업가치");
-            var perBox = Row("PER 할인율 만점", _cfg.PerScore);
-            var pbrBox = Row("PBR 할인율 만점", _cfg.PbrScore);
-            var roeBox = Row("ROE 만점", _cfg.RoeScore);
+            // ── 기업가치 (5점) ──
+            Sec("VALUATION — 기업가치 (5점)");
+            var perBox = Row("PER 할인율", _cfg.PerScore);
+            var pbrBox = Row("PBR 할인율", _cfg.PbrScore);
+            var roeBox = Row("ROE", _cfg.RoeScore);
 
-            Sec("STOCK SUPPLY — 종목수급");
-            var fd1 = Row("외국인 당일", _cfg.ForeignD1Score);
-            var f5 = Row("외국인 5일", _cfg.Foreign5DScore);
-            var f20 = Row("외국인 20일", _cfg.Foreign20DScore);
-            var id1 = Row("기관 당일", _cfg.InstD1Score);
-            var i5 = Row("기관 5일", _cfg.Inst5DScore);
-            var i20 = Row("기관 20일", _cfg.Inst20DScore);
+            // ── 종목수급 (55점) ──
+            Sec("STOCK SUPPLY — 종목수급 (55점)");
+            var s5 = Row("외국인+기관 합계 5일", _cfg.Supply5DScore);
+            var s10 = Row("외국인+기관 합계 10일", _cfg.Supply10DScore);
+            var s20 = Row("외국인+기관 합계 20일", _cfg.Supply20DScore);
             var tv = Row("거래회전율 추세", _cfg.TurnoverScore);
 
-            Sec("SECTOR SUPPLY — 업종수급");
-            var sfd1 = Row("업종 외국인 당일", _cfg.SectorForeignD1Score);
-            var sf5 = Row("업종 외국인 5일", _cfg.SectorForeign5DScore);
-            var sf20 = Row("업종 외국인 20일", _cfg.SectorForeign20DScore);
-            var sid1 = Row("업종 기관 당일", _cfg.SectorInstD1Score);
-            var si5 = Row("업종 기관 5일", _cfg.SectorInst5DScore);
-            var si20 = Row("업종 기관 20일", _cfg.SectorInst20DScore);
+            // ── 업종수급 (40점) ──
+            Sec("SECTOR SUPPLY — 업종수급 (40점)");
+            var ss5 = Row("외국인+기관 합계 5일", _cfg.SectorSupply5DScore);
+            var ss10 = Row("외국인+기관 합계 10일", _cfg.SectorSupply10DScore);
 
+            // ── 기준값 ──
             Sec("THRESHOLDS — 기준값");
             var thBox = Row("보합 기준 변화율 (%)", _cfg.TrendThresholdPct);
             var tfBox = Row("거래회전율 만점 (%)", _cfg.TurnoverFullPct);
 
+            // ── KRX ──
             Sec("KRX OPEN API");
             var authBox = TxtRow("API 인증키", _cfg.KrxAuthKey);
 
@@ -86,7 +80,6 @@ namespace StockAnalyzer.Forms
             var bbar = new Panel { Dock = DockStyle.Fill, BackColor = CARD };
             bbar.Paint += (s, e) => { using (var p = new Pen(BRD)) e.Graphics.DrawLine(p, 0, 0, bbar.Width, 0); };
 
-            // ★ 여기서 사용하는 DkBtn 클래스가 파일 하단에 정의되어 있어야 합니다! ★
             var bSave = new DkBtn("저장", TEAL, Color.White, 76, 32);
             var bCancel = new DkBtn("취소", Color.FromArgb(245, 247, 252), TXT, 76, 32);
             var bReset = new DkBtn("기본값", Color.FromArgb(245, 247, 252), TXT2, 76, 32);
@@ -94,27 +87,39 @@ namespace StockAnalyzer.Forms
             bbar.Controls.AddRange(new Control[] { bSave, bCancel, bReset });
             root.Controls.Add(bbar, 0, 2);
 
-            // 이벤트 처리
             bSave.Click += (s, e) =>
             {
-                _cfg.PerScore = V(perBox); _cfg.PbrScore = V(pbrBox); _cfg.RoeScore = V(roeBox);
-                _cfg.ForeignD1Score = V(fd1); _cfg.Foreign5DScore = V(f5); _cfg.Foreign20DScore = V(f20);
-                _cfg.InstD1Score = V(id1); _cfg.Inst5DScore = V(i5); _cfg.Inst20DScore = V(i20);
+                _cfg.PerScore = V(perBox);
+                _cfg.PbrScore = V(pbrBox);
+                _cfg.RoeScore = V(roeBox);
+
+                _cfg.Supply5DScore = V(s5);
+                _cfg.Supply10DScore = V(s10);
+                _cfg.Supply20DScore = V(s20);
                 _cfg.TurnoverScore = V(tv);
-                _cfg.SectorForeignD1Score = V(sfd1); _cfg.SectorForeign5DScore = V(sf5); _cfg.SectorForeign20DScore = V(sf20);
-                _cfg.SectorInstD1Score = V(sid1); _cfg.SectorInst5DScore = V(si5); _cfg.SectorInst20DScore = V(si20);
-                _cfg.TrendThresholdPct = V(thBox); _cfg.TurnoverFullPct = V(tfBox);
+
+                _cfg.SectorSupply5DScore = V(ss5);
+                _cfg.SectorSupply10DScore = V(ss10);
+
+                _cfg.TrendThresholdPct = V(thBox);
+                _cfg.TurnoverFullPct = V(tfBox);
                 _cfg.KrxAuthKey = authBox.Text.Trim();
-                _cfg.Save(); DialogResult = DialogResult.OK; Close();
+
+                _cfg.Save();
+                DialogResult = DialogResult.OK;
+                Close();
             };
             bCancel.Click += (s, e) => Close();
-            bReset.Click += (s, e) => { if (MessageBox.Show("기본값으로 초기화할까요?", "확인", MessageBoxButtons.YesNo) == DialogResult.Yes) { _cfg = new ScoreConfig(); _cfg.Save(); Close(); } };
+            bReset.Click += (s, e) =>
+            {
+                if (MessageBox.Show("기본값으로 초기화할까요?", "확인", MessageBoxButtons.YesNo) == DialogResult.Yes)
+                { _cfg = new ScoreConfig(); _cfg.Save(); Close(); }
+            };
 
-            // Auto-size form to fit content
             Load += (s, e) =>
             {
-                int contentW = _tbl.PreferredSize.Width + 60; // padding + borders
-                int contentH = _tbl.PreferredSize.Height + 46 + 54 + 60; // header + button bar + chrome
+                int contentW = _tbl.PreferredSize.Width + 60;
+                int contentH = _tbl.PreferredSize.Height + 46 + 54 + 60;
                 Size = new Size(Math.Max(contentW, MinimumSize.Width), Math.Min(contentH, 750));
             };
         }
@@ -148,7 +153,7 @@ namespace StockAnalyzer.Forms
     }
 
     // ══════════════════════════════════════════════════════════
-    //  커스텀 버튼 컨트롤 (누락되었던 DkBtn 클래스) - 절대 지우지 마세요!
+    //  커스텀 버튼 컨트롤 — 절대 지우지 마세요!
     // ══════════════════════════════════════════════════════════
     internal sealed class DkBtn : Control
     {
@@ -169,7 +174,6 @@ namespace StockAnalyzer.Forms
             var g = e.Graphics; g.SmoothingMode = SmoothingMode.AntiAlias;
             var r = new Rectangle(0, 0, Width - 1, Height - 1);
             var bg = Enabled ? (_h ? Lt(Bg, 15) : Bg) : Color.FromArgb(226, 232, 240);
-
             using (var p = RR(r, Rad))
             {
                 using (var b = new SolidBrush(bg)) g.FillPath(b, p);
