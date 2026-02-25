@@ -10,7 +10,10 @@ namespace StockAnalyzer.Utils
             // 2025
             new DateTime(2025,1,1), new DateTime(2025,1,28), new DateTime(2025,1,29), new DateTime(2025,1,30),
             new DateTime(2025,3,1), new DateTime(2025,5,5), new DateTime(2025,5,6), new DateTime(2025,6,6),
-            new DateTime(2025,8,15), new DateTime(2025,10,3), new DateTime(2025,10,9),
+            new DateTime(2025,8,15),
+            new DateTime(2025,10,3),
+            new DateTime(2025,10,6), new DateTime(2025,10,7), new DateTime(2025,10,8),  // 추석 + 대체공휴일
+            new DateTime(2025,10,9),
             new DateTime(2025,12,25),
             // 2026
             new DateTime(2026,1,1),

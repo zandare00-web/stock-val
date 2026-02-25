@@ -138,6 +138,13 @@ namespace StockAnalyzer.Forms
         static readonly Color UP_RED = Color.FromArgb(153, 27, 27);      // 진한 붉은색(상승)
         static readonly Color DOWN_BLUE = Color.FromArgb(30, 64, 175);   // 진한 파란색(하락)
 
+        // ── 캐시된 폰트 (GDI 핸들 누수 방지) ──
+        static readonly Font FNT_CELL_78B = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+        static readonly Font FNT_CELL_82B = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+        static readonly Font FNT_CELL_85B = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+        static readonly Font FNT_HDR_75B = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+        static readonly Font FNT_HDR_80B = new Font("Segoe UI", 8f, FontStyle.Bold);
+
         // ── 상태 ──
         AxKHOpenAPI _ax;
         List<string> _codes = new List<string>();
@@ -580,7 +587,7 @@ namespace StockAnalyzer.Forms
                 if (v.StartsWith("+")) e.CellStyle.ForeColor = UP_RED;
                 else if (v.StartsWith("-")) e.CellStyle.ForeColor = DOWN_BLUE;
                 else e.CellStyle.ForeColor = TXT_MUTE;
-                e.CellStyle.Font = new Font("Segoe UI", 7.8f, FontStyle.Bold);
+                e.CellStyle.Font = FNT_CELL_78B;
             }
 
             if (col == "Trend")
@@ -588,7 +595,7 @@ namespace StockAnalyzer.Forms
                 if (r.SupplyTrend == SupplyTrend.상승 || r.SupplyTrend == SupplyTrend.상승반전) e.CellStyle.ForeColor = UP_RED;
                 else if (r.SupplyTrend == SupplyTrend.하락 || r.SupplyTrend == SupplyTrend.하락반전) e.CellStyle.ForeColor = DOWN_BLUE;
                 else e.CellStyle.ForeColor = TXT_MUTE;
-                e.CellStyle.Font = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+                e.CellStyle.Font = FNT_CELL_82B;
             }
 
             if (col == "Vol")
@@ -596,7 +603,7 @@ namespace StockAnalyzer.Forms
                 if (r.VolTrend == VolTrend.상승) e.CellStyle.ForeColor = UP_RED;
                 else if (r.VolTrend == VolTrend.하락) e.CellStyle.ForeColor = DOWN_BLUE;
                 else e.CellStyle.ForeColor = TXT_MUTE;
-                e.CellStyle.Font = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+                e.CellStyle.Font = FNT_CELL_82B;
             }
         }
 
@@ -612,7 +619,7 @@ namespace StockAnalyzer.Forms
                 e.CellStyle.BackColor = Color.FromArgb(248, 250, 252);
                 e.CellStyle.SelectionBackColor = e.CellStyle.BackColor;
                 e.CellStyle.ForeColor = TXT_SEC;
-                e.CellStyle.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+                e.CellStyle.Font = FNT_CELL_85B;
                 return;
             }
 
@@ -623,7 +630,7 @@ namespace StockAnalyzer.Forms
                 if (v.StartsWith("+")) e.CellStyle.ForeColor = UP_RED;
                 else if (v.StartsWith("-")) e.CellStyle.ForeColor = DOWN_BLUE;
                 else e.CellStyle.ForeColor = TXT_MUTE;
-                e.CellStyle.Font = new Font("Segoe UI", 8.2f, FontStyle.Bold);
+                e.CellStyle.Font = FNT_CELL_82B;
             }
         }
 
@@ -654,9 +661,8 @@ namespace StockAnalyzer.Forms
             var r3 = new Rectangle(rect.X, row3Y, rect.Width, row3H);
 
             string txt = (col == "F5D" || col == "I5D") ? "5일" : "10일";
-            using (var f = new Font("Segoe UI", 7.5f, FontStyle.Bold))
-                TextRenderer.DrawText(e.Graphics, txt, f, r3, TXT_SEC,
-                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            TextRenderer.DrawText(e.Graphics, txt, FNT_HDR_75B, r3, TXT_SEC,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
         }
 
         /// <summary>3단 그룹 헤더를 Paint 오버레이로 그림 (CellPainting은 셀 바깥 클리핑됨)</summary>
@@ -691,13 +697,10 @@ namespace StockAnalyzer.Forms
             int wTrend = GetColW("Trend");
             int totalW = wF + wI + wTrend;
 
-            var hdrFont = new Font("Segoe UI", 7.5f, FontStyle.Bold);
-            var grpFont = new Font("Segoe UI", 8f, FontStyle.Bold);
-
             // Row 1: "수급(수량)" 전체 그룹
             var grpRect = new Rectangle(xF5D, 0, totalW, row1H);
             using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, grpRect);
-            TextRenderer.DrawText(g, "수급(수량·1주)", grpFont, grpRect, TXT_SEC,
+            TextRenderer.DrawText(g, "수급(수량·1주)", FNT_HDR_80B, grpRect, TXT_SEC,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             using (var pen = new Pen(GRID_LN))
                 g.DrawLine(pen, xF5D, row1H, xF5D + totalW, row1H);
@@ -705,18 +708,18 @@ namespace StockAnalyzer.Forms
             // Row 2: "외국인" | "기관" | "추세"
             var fRect = new Rectangle(xF5D, row1H, wF, row2H);
             using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, fRect);
-            TextRenderer.DrawText(g, "외국인", hdrFont, fRect, TXT_SEC,
+            TextRenderer.DrawText(g, "외국인", FNT_HDR_75B, fRect, TXT_SEC,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 
             var iRect = new Rectangle(xI5D, row1H, wI, row2H);
             using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, iRect);
-            TextRenderer.DrawText(g, "기관", hdrFont, iRect, TXT_SEC,
+            TextRenderer.DrawText(g, "기관", FNT_HDR_75B, iRect, TXT_SEC,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 
             // "추세"는 row2+row3 통합
             var tRect = new Rectangle(xTrend, row1H, wTrend, row2H + row3H);
             using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, tRect);
-            TextRenderer.DrawText(g, "추세", hdrFont, tRect, TXT_SEC,
+            TextRenderer.DrawText(g, "추세", FNT_HDR_75B, tRect, TXT_SEC,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
 
             // 구분선
@@ -728,9 +731,6 @@ namespace StockAnalyzer.Forms
                 g.DrawLine(pen, xI5D, row1H, xI5D, row1H + row2H);
                 g.DrawLine(pen, xTrend, row1H, xTrend, hdrH);
             }
-
-            hdrFont.Dispose();
-            grpFont.Dispose();
         }
 
         // ── 데이터 갱신 ──
@@ -1040,10 +1040,11 @@ namespace StockAnalyzer.Forms
         void SetRun(bool v)
         {
             _running = v; _btnRun.Enabled = !v && _codes.Count > 0; _btnStop.Enabled = v; _btnCsv.Enabled = !v;
+            if (_cbCond != null) _cbCond.Enabled = !v;
             if (_chkAutoReanalyze != null) _chkAutoReanalyze.Enabled = !v;
             if (_chkIntradayRefresh != null) _chkIntradayRefresh.Enabled = !v;
             if (v) { _btnRun.Text = "⏳ 분석 중"; _btnRun.Invalidate(); }
-            else { _btnRun.Text = "✅ 분석 완료"; _btnRun.Invalidate(); _bar.Value = 0; _bar.Invalidate(); _lblProg.Text = "분석 완료!"; }
+            else { _btnRun.Text = "▶ 분석 시작"; _btnRun.Invalidate(); _bar.Value = 0; _bar.Invalidate(); _lblProg.Text = "분석 완료!"; }
         }
         void InvUI(Action a) { if (InvokeRequired) Invoke(a); else a(); }
         protected override void OnFormClosing(FormClosingEventArgs e)
