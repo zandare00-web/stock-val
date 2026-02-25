@@ -157,23 +157,55 @@ namespace StockAnalyzer.Api
             };
         }
 
-        // ── opt10059 투자자별 순매수 (수량 모드, 60일) ──────────
+        // ── opt10059 투자자별 순매수 (금액+수량 이중 조회, 60일) ──
 
         public async Task<List<InvestorDay>> GetInvestorDataAsync(
             string code, DateTime fromDate)
         {
-            int prevNext = 0;
+            // 1) 금액 모드 (백만원)
+            var amtRaw = await FetchInvestorRawAsync(code, fromDate, "1", "종목투자자_금액");
+            // 2) 수량 모드 (주)
+            var qtyRaw = await FetchInvestorRawAsync(code, fromDate, "2", "종목투자자_수량");
+
+            var qtyByDate = new Dictionary<DateTime, (long foreign, long inst)>();
+            foreach (var q in qtyRaw)
+                qtyByDate[q.date] = (q.foreign, q.inst);
+
             var result = new List<InvestorDay>();
+            foreach (var a in amtRaw)
+            {
+                var day = new InvestorDay
+                {
+                    Date = a.date,
+                    ForeignNetAmt = a.foreign * 1_000_000, // 백만원→원
+                    InstNetAmt = a.inst * 1_000_000,       // 백만원→원
+                    Volume = a.volume,
+                };
+                if (qtyByDate.TryGetValue(a.date, out var q2))
+                {
+                    day.ForeignNetQty = q2.foreign;
+                    day.InstNetQty = q2.inst;
+                }
+                result.Add(day);
+            }
+            return result;
+        }
+
+        private async Task<List<(DateTime date, long foreign, long inst, long volume)>>
+            FetchInvestorRawAsync(string code, DateTime fromDate, string amtQtyMode, string rqName)
+        {
+            int prevNext = 0;
+            var result = new List<(DateTime, long, long, long)>();
             var cutoff = fromDate.Date;
 
             while (true)
             {
-                var r = await RequestAsync("종목투자자", "opt10059", prevNext,
+                var r = await RequestAsync(rqName, "opt10059", prevNext,
                     new Dictionary<string, string>
                     {
                         ["일자"] = TradingDayHelper.ToApiDate(DateTime.Today),
                         ["종목코드"] = code,
-                        ["금액수량구분"] = "1",   // 금액(백만원) — 수량모드 미지원 이슈로 금액 사용
+                        ["금액수량구분"] = amtQtyMode,
                         ["매매구분"] = "0",
                         ["단위구분"] = "1",
                     });
@@ -184,13 +216,12 @@ namespace StockAnalyzer.Api
                 {
                     if (!TryParseDate(r.GetString("종목별투자자기관별", "일자", i), out var d)) continue;
                     if (d.Date < cutoff) { done = true; break; }
-                    result.Add(new InvestorDay
-                    {
-                        Date = d,
-                        ForeignNet = r.GetLong("종목별투자자기관별", "외국인투자자", i) * 1_000_000, // 백만원→원
-                        InstNet = r.GetLong("종목별투자자기관별", "기관계", i) * 1_000_000,       // 백만원→원
-                        Volume = Math.Abs(r.GetLong("종목별투자자기관별", "누적거래량", i)),
-                    });
+                    result.Add((
+                        d,
+                        r.GetLong("종목별투자자기관별", "외국인투자자", i),
+                        r.GetLong("종목별투자자기관별", "기관계", i),
+                        Math.Abs(r.GetLong("종목별투자자기관별", "누적거래량", i))
+                    ));
                 }
 
                 if (done || !r.HasNext) break;

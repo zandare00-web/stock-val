@@ -32,10 +32,12 @@ namespace StockAnalyzer.Models
     public class InvestorDay
     {
         public DateTime Date { get; set; }
-        public long ForeignNet { get; set; }  // 외국인 순매수 (수량, 주)
-        public long InstNet { get; set; }  // 기관 순매수 (수량, 주)
-        public long Volume { get; set; }  // 누적거래량 (주)
-        public double TradeAmount { get; set; } // 거래대금
+        public long ForeignNetAmt { get; set; }  // 외국인 순매수 금액 (원)
+        public long InstNetAmt { get; set; }     // 기관 순매수 금액 (원)
+        public long ForeignNetQty { get; set; }  // 외국인 순매수 수량 (주)
+        public long InstNetQty { get; set; }     // 기관 순매수 수량 (주)
+        public long Volume { get; set; }         // 누적거래량 (주)
+        public double TradeAmount { get; set; }  // 거래대금
     }
 
     public class DailyBar
@@ -97,15 +99,25 @@ namespace StockAnalyzer.Models
         public double? SectorAvgPer { get; set; }
         public double? SectorAvgPbr { get; set; }
 
-        // 종목수급 세부 (수량 기준, 주)
-        public long ForeignNetD1 { get; set; }
-        public long ForeignNet5D { get; set; }
-        public long ForeignNet10D { get; set; }
-        public long ForeignNet20D { get; set; }
-        public long InstNetD1 { get; set; }
-        public long InstNet5D { get; set; }
-        public long InstNet10D { get; set; }
-        public long InstNet20D { get; set; }
+        // 종목수급 세부 - 금액 (원)
+        public long ForeignNetAmtD1 { get; set; }
+        public long ForeignNetAmt5D { get; set; }
+        public long ForeignNetAmt10D { get; set; }
+        public long ForeignNetAmt20D { get; set; }
+        public long InstNetAmtD1 { get; set; }
+        public long InstNetAmt5D { get; set; }
+        public long InstNetAmt10D { get; set; }
+        public long InstNetAmt20D { get; set; }
+
+        // 종목수급 세부 - 수량 (주)
+        public long ForeignNetQtyD1 { get; set; }
+        public long ForeignNetQty5D { get; set; }
+        public long ForeignNetQty10D { get; set; }
+        public long ForeignNetQty20D { get; set; }
+        public long InstNetQtyD1 { get; set; }
+        public long InstNetQty5D { get; set; }
+        public long InstNetQty10D { get; set; }
+        public long InstNetQty20D { get; set; }
 
         // 거래회전율
         public double Turnover20D { get; set; }

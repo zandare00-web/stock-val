@@ -449,7 +449,7 @@ namespace StockAnalyzer.Forms
             if (col == "TotalScore")
                 e.CellStyle.ForeColor = r.TotalScore >= 80 ? GREEN : r.TotalScore >= 50 ? TEAL_D : r.TotalScore >= 30 ? AMBER : CORAL;
 
-            // 외국인/기관 수량(환산) 색상: 상승(+) 진한 빨강 / 하락(-) 진한 파랑 + 굵게
+            // 외국인/기관 수량(주) 색상: 상승(+) 진한 빨강 / 하락(-) 진한 파랑 + 굵게
             if (col == "F5D" || col == "F10D" || col == "I5D" || col == "I10D")
             {
                 var v = e.Value?.ToString() ?? "";
@@ -573,7 +573,7 @@ namespace StockAnalyzer.Forms
             // Row 1: "수급(수량)" 전체 그룹
             var grpRect = new Rectangle(xF5D, 0, totalW, row1H);
             using (var bg = new SolidBrush(GRID_HDR)) g.FillRectangle(bg, grpRect);
-            TextRenderer.DrawText(g, "수급(수량·1주)", grpFont, grpRect, TXT_SEC,
+            TextRenderer.DrawText(g, "수급(수량·주)", grpFont, grpRect, TXT_SEC,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             using (var pen = new Pen(GRID_LN))
                 g.DrawLine(pen, xF5D, row1H, xF5D + totalW, row1H);
@@ -617,18 +617,17 @@ namespace StockAnalyzer.Forms
             for (int i = 0; i < _res.Count; i++)
             {
                 var r = _res[i];
-                double px = r.CurrentPrice > 0 ? r.CurrentPrice : 1;
                 _gResult.Rows.Add(
                     i + 1,
                     r.Name,
                     r.TotalScore.ToString("F1"),
-                    FQ1((long)Math.Round(r.ForeignNet5D / px)),   // F5D (수량 1주 단위 환산)
-                    FQ1((long)Math.Round(r.ForeignNet10D / px)),  // F10D
-                    FQ1((long)Math.Round(r.InstNet5D / px)),      // I5D
-                    FQ1((long)Math.Round(r.InstNet10D / px)),     // I10D
-                    r.SupplyTrend.ToString(),             // Trend
-                    r.VolTrend.ToString(),                // Vol (20/60)
-                    r.SectorName,                         // Sector
+                    FQ1(r.ForeignNetQty5D),       // F5D (수량, 주)
+                    FQ1(r.ForeignNetQty10D),      // F10D
+                    FQ1(r.InstNetQty5D),          // I5D
+                    FQ1(r.InstNetQty10D),         // I10D
+                    r.SupplyTrend.ToString(),     // Trend
+                    r.VolTrend.ToString(),        // Vol (20/60)
+                    r.SectorName,                 // Sector
                     r.Code);
             }
         }
@@ -799,16 +798,26 @@ namespace StockAnalyzer.Forms
             fl.Controls.Add(DR("업종PBR", r.SectorAvgPbr.HasValue ? r.SectorAvgPbr.Value.ToString("F2") : "—"));
             fl.Controls.Add(DH());
 
-            // ★ 수량 환산 (금액÷현재가)
-            double px = r.CurrentPrice > 0 ? r.CurrentPrice : 1;
-            fl.Controls.Add(DR("외국인 당일", FQ((long)(r.ForeignNetD1 / px)), NQ(r.ForeignNetD1), true));
-            fl.Controls.Add(DR("외국인 5일", FQ((long)(r.ForeignNet5D / px)), NQ(r.ForeignNet5D), true));
-            fl.Controls.Add(DR("외국인 10일", FQ((long)(r.ForeignNet10D / px)), NQ(r.ForeignNet10D), true));
-            fl.Controls.Add(DR("외국인 20일", FQ((long)(r.ForeignNet20D / px)), NQ(r.ForeignNet20D), true));
-            fl.Controls.Add(DR("기관 당일", FQ((long)(r.InstNetD1 / px)), NQ(r.InstNetD1), true));
-            fl.Controls.Add(DR("기관 5일", FQ((long)(r.InstNet5D / px)), NQ(r.InstNet5D), true));
-            fl.Controls.Add(DR("기관 10일", FQ((long)(r.InstNet10D / px)), NQ(r.InstNet10D), true));
-            fl.Controls.Add(DR("기관 20일", FQ((long)(r.InstNet20D / px)), NQ(r.InstNet20D), true));
+            // ── 수급 (수량, 주) ──
+            fl.Controls.Add(DR("외국인 당일", FQ(r.ForeignNetQtyD1), NQ(r.ForeignNetQtyD1), true));
+            fl.Controls.Add(DR("외국인 5일", FQ(r.ForeignNetQty5D), NQ(r.ForeignNetQty5D), true));
+            fl.Controls.Add(DR("외국인 10일", FQ(r.ForeignNetQty10D), NQ(r.ForeignNetQty10D), true));
+            fl.Controls.Add(DR("외국인 20일", FQ(r.ForeignNetQty20D), NQ(r.ForeignNetQty20D), true));
+            fl.Controls.Add(DR("기관 당일", FQ(r.InstNetQtyD1), NQ(r.InstNetQtyD1), true));
+            fl.Controls.Add(DR("기관 5일", FQ(r.InstNetQty5D), NQ(r.InstNetQty5D), true));
+            fl.Controls.Add(DR("기관 10일", FQ(r.InstNetQty10D), NQ(r.InstNetQty10D), true));
+            fl.Controls.Add(DR("기관 20일", FQ(r.InstNetQty20D), NQ(r.InstNetQty20D), true));
+            fl.Controls.Add(DH());
+
+            // ── 수급 (금액) ──
+            fl.Controls.Add(DR("외국인 금액 당일", FAL(r.ForeignNetAmtD1), NQ(r.ForeignNetAmtD1), true));
+            fl.Controls.Add(DR("외국인 금액 5일", FAL(r.ForeignNetAmt5D), NQ(r.ForeignNetAmt5D), true));
+            fl.Controls.Add(DR("외국인 금액 10일", FAL(r.ForeignNetAmt10D), NQ(r.ForeignNetAmt10D), true));
+            fl.Controls.Add(DR("외국인 금액 20일", FAL(r.ForeignNetAmt20D), NQ(r.ForeignNetAmt20D), true));
+            fl.Controls.Add(DR("기관 금액 당일", FAL(r.InstNetAmtD1), NQ(r.InstNetAmtD1), true));
+            fl.Controls.Add(DR("기관 금액 5일", FAL(r.InstNetAmt5D), NQ(r.InstNetAmt5D), true));
+            fl.Controls.Add(DR("기관 금액 10일", FAL(r.InstNetAmt10D), NQ(r.InstNetAmt10D), true));
+            fl.Controls.Add(DR("기관 금액 20일", FAL(r.InstNetAmt20D), NQ(r.InstNetAmt20D), true));
             fl.Controls.Add(DH());
 
             fl.Controls.Add(DR("거래량20D평균", FVol(r.VolAvg20D)));
@@ -908,6 +917,17 @@ namespace StockAnalyzer.Forms
 
         /// <summary>업종수급 금액 포맷: +12.3억</summary>
         static string FA(double v) => (v / 1e8).ToString("+#,0.0억;-#,0.0억;0억");
+
+        /// <summary>종목수급 금액 포맷 (원→억): +12.3억, +5,678만</summary>
+        static string FAL(long v)
+        {
+            double a = Math.Abs((double)v);
+            string sign = v >= 0 ? "+" : "-";
+            if (a >= 1e8) return sign + (a / 1e8).ToString("F1") + "억";
+            if (a >= 1e4) return sign + (a / 1e4).ToString("F0") + "만";
+            if (a == 0) return "0";
+            return v.ToString("+#,0;-#,0");
+        }
 
         static Color NQ(long v) => v > 0 ? UP_RED : v < 0 ? DOWN_BLUE : TXT_MUTE;
         static Color SC(double s) => s >= 80 ? GREEN : s >= 50 ? TEAL_D : s >= 30 ? AMBER : CORAL;

@@ -74,23 +74,33 @@ namespace StockAnalyzer.Scoring
             double score = 0;
             if (investors == null || investors.Count == 0) return 0;
 
-            // 개별 값 기록 (UI 표시용)
-            r.ForeignNetD1 = investors.Count > 0 ? investors[0].ForeignNet : 0;
-            r.InstNetD1 = investors.Count > 0 ? investors[0].InstNet : 0;
-            r.ForeignNet5D = investors.Take(5).Sum(d => d.ForeignNet);
-            r.InstNet5D = investors.Take(5).Sum(d => d.InstNet);
-            r.ForeignNet10D = investors.Take(10).Sum(d => d.ForeignNet);
-            r.InstNet10D = investors.Take(10).Sum(d => d.InstNet);
-            r.ForeignNet20D = investors.Take(20).Sum(d => d.ForeignNet);
-            r.InstNet20D = investors.Take(20).Sum(d => d.InstNet);
+            // 금액 기록 (점수계산 + UI 표시용)
+            r.ForeignNetAmtD1 = investors.Count > 0 ? investors[0].ForeignNetAmt : 0;
+            r.InstNetAmtD1 = investors.Count > 0 ? investors[0].InstNetAmt : 0;
+            r.ForeignNetAmt5D = investors.Take(5).Sum(d => d.ForeignNetAmt);
+            r.InstNetAmt5D = investors.Take(5).Sum(d => d.InstNetAmt);
+            r.ForeignNetAmt10D = investors.Take(10).Sum(d => d.ForeignNetAmt);
+            r.InstNetAmt10D = investors.Take(10).Sum(d => d.InstNetAmt);
+            r.ForeignNetAmt20D = investors.Take(20).Sum(d => d.ForeignNetAmt);
+            r.InstNetAmt20D = investors.Take(20).Sum(d => d.InstNetAmt);
 
-            // ★ 외국인+기관 합계로 점수 계산
-            long combined5D = r.ForeignNet5D + r.InstNet5D;
-            long combined10D = r.ForeignNet10D + r.InstNet10D;
-            long combined20D = r.ForeignNet20D + r.InstNet20D;
+            // 수량 기록 (UI 표시용)
+            r.ForeignNetQtyD1 = investors.Count > 0 ? investors[0].ForeignNetQty : 0;
+            r.InstNetQtyD1 = investors.Count > 0 ? investors[0].InstNetQty : 0;
+            r.ForeignNetQty5D = investors.Take(5).Sum(d => d.ForeignNetQty);
+            r.InstNetQty5D = investors.Take(5).Sum(d => d.InstNetQty);
+            r.ForeignNetQty10D = investors.Take(10).Sum(d => d.ForeignNetQty);
+            r.InstNetQty10D = investors.Take(10).Sum(d => d.InstNetQty);
+            r.ForeignNetQty20D = investors.Take(20).Sum(d => d.ForeignNetQty);
+            r.InstNetQty20D = investors.Take(20).Sum(d => d.InstNetQty);
+
+            // ★ 금액 기준 외국인+기관 합계로 점수 계산
+            long combined5D = r.ForeignNetAmt5D + r.InstNetAmt5D;
+            long combined10D = r.ForeignNetAmt10D + r.InstNetAmt10D;
+            long combined20D = r.ForeignNetAmt20D + r.InstNetAmt20D;
 
             // 정규화 기준: 각 기간의 일별 합계(외+기) 최대 절대값
-            var dailyCombined = investors.Select(d => (double)(d.ForeignNet + d.InstNet)).ToList();
+            var dailyCombined = investors.Select(d => (double)(d.ForeignNetAmt + d.InstNetAmt)).ToList();
             double maxDaily = dailyCombined.Count > 0
                 ? dailyCombined.Max(v => Math.Abs(v)) : 1;
             if (maxDaily == 0) maxDaily = 1;
@@ -179,12 +189,12 @@ namespace StockAnalyzer.Scoring
         {
             if (days == null || days.Count == 0) return 0;
 
-            // opt10059를 금액(원) 기준으로 수집 중이므로 단위를 맞춰 계산
             // 수급강도 = (외인+기관 순매수금액 합계) / (동기간 거래대금 합계)
+            // ForeignNetAmt/InstNetAmt: 원, DailyBar.TradeAmount: 원
             double totalTrade = bars?.Sum(b => b.TradeAmount) ?? 0;
             if (totalTrade <= 0) return 0;
 
-            double netAmt = days.Sum(d => (double)(d.ForeignNet + d.InstNet));
+            double netAmt = days.Sum(d => (double)(d.ForeignNetAmt + d.InstNetAmt));
             return netAmt / totalTrade;
         }
 
