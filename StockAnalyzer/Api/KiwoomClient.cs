@@ -108,7 +108,7 @@ namespace StockAnalyzer.Api
             try
             {
                 await Task.Delay(_trDelayMs);
-                var tcs = new TaskCompletionSource<TrResult>();
+                var tcs = new TaskCompletionSource<TrResult>(TaskCreationOptions.RunContinuationsAsynchronously);
                 _pending[rqName] = tcs;
 
                 foreach (var kv in inputs)
@@ -121,8 +121,15 @@ namespace StockAnalyzer.Api
                     throw new Exception($"CommRqData 오류({ret}): {rqName}/{trCode}");
                 }
 
-                var cts = new CancellationTokenSource(timeoutMs);
-                cts.Token.Register(() => tcs.TrySetCanceled());
+                // 중요: TR 타임아웃을 TaskCanceledException으로 만들면 상위에서 사용자 취소로 오인할 수 있음.
+                // → TimeoutException으로 명확히 분리해서 종목 단위 오류 처리되도록 한다.
+                var completed = await Task.WhenAny(tcs.Task, Task.Delay(timeoutMs));
+                if (completed != tcs.Task)
+                {
+                    _pending.Remove(rqName);
+                    throw new TimeoutException($"TR 응답 시간초과({timeoutMs}ms): {rqName}/{trCode}");
+                }
+
                 return await tcs.Task;
             }
             finally { _trLock.Release(); }
@@ -162,21 +169,29 @@ namespace StockAnalyzer.Api
         public async Task<List<InvestorDay>> GetInvestorDataAsync(
             string code, DateTime fromDate)
         {
+            // 종목별 수급현황은 수량(주)만 사용: opt10059 단일 호출로 수집
+            // 금액 관련 로직/호출 제거 (금액수량구분 "2" = 수량)
+            return await GetInvestorDataSingleAsync(code, fromDate, "2", isAmountMode: false);
+        }
+
+        private async Task<List<InvestorDay>> GetInvestorDataSingleAsync(
+            string code, DateTime fromDate, string amtQtyType, bool isAmountMode)
+        {
             int prevNext = 0;
             var result = new List<InvestorDay>();
             var cutoff = fromDate.Date;
 
             while (true)
             {
-                var r = await RequestAsync("종목투자자", "opt10059", prevNext,
+                var r = await RequestAsync($"종목투자자_{amtQtyType}", "opt10059", prevNext,
                     new Dictionary<string, string>
                     {
                         ["일자"] = TradingDayHelper.ToApiDate(DateTime.Today),
                         ["종목코드"] = code,
-                        ["금액수량구분"] = "1",   // 금액(백만원) — 수량모드 미지원 이슈로 금액 사용
+                        ["금액수량구분"] = amtQtyType,
                         ["매매구분"] = "0",
                         ["단위구분"] = "1",
-                    });
+                                        }, timeoutMs: 25000);
 
                 int cnt = r.RepeatCount("종목별투자자기관별");
                 bool done = false;
@@ -184,13 +199,29 @@ namespace StockAnalyzer.Api
                 {
                     if (!TryParseDate(r.GetString("종목별투자자기관별", "일자", i), out var d)) continue;
                     if (d.Date < cutoff) { done = true; break; }
-                    result.Add(new InvestorDay
+
+                    var item = new InvestorDay
                     {
-                        Date = d,
-                        ForeignNet = r.GetLong("종목별투자자기관별", "외국인투자자", i) * 1_000_000, // 백만원→원
-                        InstNet = r.GetLong("종목별투자자기관별", "기관계", i) * 1_000_000,       // 백만원→원
+                        Date = d.Date,
                         Volume = Math.Abs(r.GetLong("종목별투자자기관별", "누적거래량", i)),
-                    });
+                    };
+
+                    if (isAmountMode)
+                    {
+                        item.ForeignNetAmt = r.GetLong("종목별투자자기관별", "외국인투자자", i) * 1_000_000; // 백만원→원
+                        item.InstNetAmt = r.GetLong("종목별투자자기관별", "기관계", i) * 1_000_000;       // 백만원→원
+                        item.ForeignNet = item.ForeignNetAmt;
+                        item.InstNet = item.InstNetAmt;
+                    }
+                    else
+                    {
+                        item.ForeignNetQty = r.GetLong("종목별투자자기관별", "외국인투자자", i); // 주
+                        item.InstNetQty = r.GetLong("종목별투자자기관별", "기관계", i);       // 주
+                        item.ForeignNet = item.ForeignNetQty;
+                        item.InstNet = item.InstNetQty;
+                    }
+
+                    result.Add(item);
                 }
 
                 if (done || !r.HasNext) break;
@@ -210,13 +241,30 @@ namespace StockAnalyzer.Api
 
             while (true)
             {
-                var r = await RequestAsync("주식일봉", "opt10081", prevNext,
-                    new Dictionary<string, string>
+                TrResult r = null;
+                Exception lastEx = null;
+                for (int attempt = 1; attempt <= 2; attempt++)
+                {
+                    try
                     {
-                        ["종목코드"] = code,
-                        ["기준일자"] = TradingDayHelper.ToApiDate(DateTime.Today),
-                        ["수정주가구분"] = "1",
-                    });
+                        r = await RequestAsync($"주식일봉_{code}_{attempt}", "opt10081", prevNext,
+                            new Dictionary<string, string>
+                            {
+                                ["종목코드"] = code,
+                                ["기준일자"] = TradingDayHelper.ToApiDate(DateTime.Today),
+                                ["수정주가구분"] = "1",
+                            }, timeoutMs: 30000);
+                        lastEx = null;
+                        break;
+                    }
+                    catch (TimeoutException ex)
+                    {
+                        lastEx = ex;
+                        if (attempt >= 2) throw;
+                        await Task.Delay(500);
+                    }
+                }
+                if (r == null && lastEx != null) throw lastEx;
 
                 int cnt = r.RepeatCount("주식일봉차트조회");
                 bool done = false;
@@ -243,30 +291,61 @@ namespace StockAnalyzer.Api
         public async Task<List<SectorInvestorRow>> GetSectorInvestorAsync(
             string marketCode, string date, string amtQtyType = "0")
         {
-            var r = await RequestAsync("업종별투자자", "OPT10051", 0,
-                new Dictionary<string, string>
-                {
-                    ["시장구분"] = marketCode,
-                    ["금액수량구분"] = amtQtyType,
-                    ["기준일자"] = date,
-                    ["거래소구분"] = "",
-                });
-
-            var result = new List<SectorInvestorRow>();
-            int cnt = r.RepeatCount("업종별순매수");
-            for (int i = 0; i < cnt; i++)
+            // 정확도/안정성 우선:
+            // - rqName에 시장/날짜를 넣어 지연 응답 충돌 가능성 감소
+            // - 0건이면 1회 재시도
+            // - amtQtyType="0" 사용 시 서버/환경에 따라 0건이 나오는 경우가 있어 금액("1") fallback 시도
+            async Task<List<SectorInvestorRow>> QueryOnce(string type, int attempt)
             {
-                var sectorCode = r.GetString("업종별순매수", "업종코드", i);
-                if (string.IsNullOrWhiteSpace(sectorCode)) continue;
+                var r = await RequestAsync($"업종별투자자_{marketCode}_{date}_{type}_{attempt}", "OPT10051", 0,
+                    new Dictionary<string, string>
+                    {
+                        ["시장구분"] = marketCode,
+                        ["금액수량구분"] = type,
+                        ["기준일자"] = date,
+                        ["거래소구분"] = "",
+                    }, timeoutMs: 20000);
 
-                result.Add(new SectorInvestorRow
+                var rows = new List<SectorInvestorRow>();
+                int cnt = r.RepeatCount("업종별순매수");
+                for (int i = 0; i < cnt; i++)
                 {
-                    SectorCode = sectorCode.Trim(),
-                    SectorName = r.GetString("업종별순매수", "업종명", i),
-                    ForeignNet = r.GetDouble2("업종별순매수", "외국인순매수", i) * 1_000_000,
-                    InstNet = r.GetDouble2("업종별순매수", "기관계순매수", i) * 1_000_000,
-                });
+                    var sectorCode = r.GetString("업종별순매수", "업종코드", i);
+                    if (string.IsNullOrWhiteSpace(sectorCode)) continue;
+
+                    rows.Add(new SectorInvestorRow
+                    {
+                        SectorCode = sectorCode.Trim(),
+                        SectorName = r.GetString("업종별순매수", "업종명", i),
+                        ForeignNet = r.GetDouble2("업종별순매수", "외국인순매수", i) * 1_000_000,
+                        InstNet = r.GetDouble2("업종별순매수", "기관계순매수", i) * 1_000_000,
+                    });
+                }
+                return rows;
             }
+
+            List<SectorInvestorRow> result;
+            try
+            {
+                result = await QueryOnce(amtQtyType, 1);
+            }
+            catch (TimeoutException)
+            {
+                result = new List<SectorInvestorRow>();
+            }
+
+            if (result.Count == 0)
+            {
+                try { result = await QueryOnce(amtQtyType, 2); }
+                catch (TimeoutException) { /* keep empty */ }
+            }
+
+            if (result.Count == 0 && amtQtyType == "0")
+            {
+                try { result = await QueryOnce("1", 1); }
+                catch (TimeoutException) { /* keep empty */ }
+            }
+
             return result;
         }
 

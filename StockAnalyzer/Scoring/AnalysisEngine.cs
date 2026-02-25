@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using AxKHOpenAPILib;
 using StockAnalyzer.Api;
+using StockAnalyzer.Cache;
 using StockAnalyzer.Models;
 using StockAnalyzer.Utils;
 
@@ -23,20 +24,27 @@ namespace StockAnalyzer.Scoring
             List<AnalysisResult> Results,
             List<SectorSupplySummary> SectorKospi,
             List<SectorSupplySummary> SectorKosdaq)>
-        RunAsync(List<string> codes, ScoreConfig cfg, CancellationToken ct)
+        RunAsync(List<string> codes, ScoreConfig cfg, CancellationToken ct, bool intradayRefresh = true)
         {
             var tradingDays60 = TradingDayHelper.GetRecentTradingDays(60);
             var fromDate60 = tradingDays60[tradingDays60.Count - 1];
+            var today = DateTime.Today;
+            var latestCompleted = TradingDayHelper.GetLatestCompletedTradingDay();
+            var intradayEnabled = intradayRefresh && IsMarketOpenNow() && TradingDayHelper.IsTradingDay(today);
 
+            using (var cache = new MarketCacheDb())
             using (var kiwoom = new KiwoomClient(_ax))
             using (var krx = new KrxClient(cfg.KrxAuthKey))
             {
+                cache.EnsureCreated();
+                LogMsg($"▶ 로컬 DB 캐시 초기화: {cache.DbPath}");
+
                 // ── 1. KRX 종목정보 (이름/시장 기본) ─────────────
                 LogMsg("▶ 종목 기본정보 조회 (KRX Open API)...");
                 var stockInfos = new Dictionary<string, StockInfo>();
                 try
                 {
-                    var allStocks = await krx.GetAllStocksAsync();
+                    var allStocks = await krx.GetAllStocksAsync(forceRefresh: intradayEnabled);
                     LogMsg($"  KRX에서 {allStocks.Count}개 종목 로드 완료");
 
                     var allStocksByCode = allStocks
@@ -50,6 +58,7 @@ namespace StockAnalyzer.Scoring
                             stockInfos[code] = info;
                     }
                     LogMsg($"  대상 종목 {stockInfos.Count}/{codes.Count}개 매칭");
+                    try { cache.UpsertStockInfos(stockInfos.Values); } catch (Exception cex) { LogMsg($"  ⚠ 캐시 저장(stock_master) 실패: {cex.Message}"); }
                 }
                 catch (Exception ex)
                 {
@@ -72,6 +81,16 @@ namespace StockAnalyzer.Scoring
                     catch { }
                 }
                 LogMsg($"  업종정보: {stockSectorMap.Count}/{codes.Count}개 수집");
+                try
+                {
+                    foreach (var code in codes)
+                    {
+                        var mkt = stockMarketMap.TryGetValue(code, out var m) ? m : (stockInfos.TryGetValue(code, out var si0) ? si0.Market : "KOSPI");
+                        var secName = stockSectorMap.TryGetValue(code, out var sn0) ? sn0 : (stockInfos.TryGetValue(code, out var si1) ? si1.SectorName : "");
+                        cache.UpsertStockSectorMap(code, today, mkt, "", secName, "KOA_Functions");
+                    }
+                }
+                catch (Exception cex) { LogMsg($"  ⚠ 캐시 저장(stock_sector_map_history) 실패: {cex.Message}"); }
 
                 // StockInfo에 업종 반영
                 foreach (var code in codes)
@@ -117,26 +136,72 @@ namespace StockAnalyzer.Scoring
                         var dTrade = TradingDayHelper.GetPreviousTradingDay(d);
                         var dateStr = dTrade.ToString("yyyyMMdd");
 
-                        var kospiRows = await kiwoom.GetSectorInvestorAsync("0", dateStr, "0");
+                        List<SectorInvestorRow> kospiRows;
+                        List<SectorInvestorRow> kosdaqRows;
+
+                        // DB 캐시 우선 사용 (확정 일자)
+                        kospiRows = cache.GetSectorInvestorDaily("KOSPI", dTrade);
+                        kosdaqRows = cache.GetSectorInvestorDaily("KOSDAQ", dTrade);
+
                         if (kospiRows.Count == 0)
                         {
+                            var started = DateTime.Now;
+                            try
+                            {
+                                kospiRows = await kiwoom.GetSectorInvestorAsync("0", dateStr, "1"); // 금액 기준 명시
+                                if (kospiRows.Count > 0) cache.UpsertSectorInvestorDaily("KOSPI", dTrade, kospiRows);
+                                cache.WriteFetchLog("kiwoom", "OPT10051", "업종별투자자", $"KOSPI:{dateStr}", "{amtQtyType:1}", kospiRows.Count > 0 ? "OK" : "EMPTY", kospiRows.Count, null, started, DateTime.Now);
+                            }
+                            catch (Exception ex)
+                            {
+                                cache.WriteFetchLog("kiwoom", "OPT10051", "업종별투자자", $"KOSPI:{dateStr}", "{amtQtyType:1}", "ERROR", 0, ex.Message, started, DateTime.Now);
+                                throw;
+                            }
+                        }
+                        else if (actualTradingDays.Count < 2 || actualTradingDays.Count % 5 == 0)
+                        {
+                            LogMsg($"  · 캐시사용(opt10051): {dateStr} KOSPI {kospiRows.Count}건");
+                        }
+
+                        if (kosdaqRows.Count == 0)
+                        {
+                            var started = DateTime.Now;
+                            try
+                            {
+                                kosdaqRows = await kiwoom.GetSectorInvestorAsync("1", dateStr, "1");
+                                if (kosdaqRows.Count > 0) cache.UpsertSectorInvestorDaily("KOSDAQ", dTrade, kosdaqRows);
+                                cache.WriteFetchLog("kiwoom", "OPT10051", "업종별투자자", $"KOSDAQ:{dateStr}", "{amtQtyType:1}", kosdaqRows.Count > 0 ? "OK" : "EMPTY", kosdaqRows.Count, null, started, DateTime.Now);
+                            }
+                            catch (Exception ex)
+                            {
+                                cache.WriteFetchLog("kiwoom", "OPT10051", "업종별투자자", $"KOSDAQ:{dateStr}", "{amtQtyType:1}", "ERROR", 0, ex.Message, started, DateTime.Now);
+                                throw;
+                            }
+                        }
+                        else if (actualTradingDays.Count < 2 || actualTradingDays.Count % 5 == 0)
+                        {
+                            LogMsg($"  · 캐시사용(opt10051): {dateStr} KOSDAQ {kosdaqRows.Count}건");
+                        }
+
+                        if (kospiRows.Count == 0 && kosdaqRows.Count == 0)
+                        {
                             emptyCount++;
-                            if (emptyCount <= 5)
-                                LogMsg($"  ⚠ {dateStr}: 코스피 0건 (휴장/데이터없음 추정, 건너뜀 {emptyCount}회)");
+                            if (emptyCount <= 8)
+                                LogMsg($"  ⚠ {dateStr}: 코스피/코스닥 모두 0건 (휴장/지연/데이터없음 추정, 건너뜀 {emptyCount}회)");
 
                             d = dTrade.AddDays(-1);
                             continue;
                         }
 
+                        emptyCount = 0;
                         actualTradingDays.Add(dTrade);
-                        var kosdaqRows = await kiwoom.GetSectorInvestorAsync("1", dateStr, "0");
 
                         foreach (var row in kospiRows)
                             AddSectorData(sectorSupply, sectorNameMap, sectorMarketMap, row, dTrade, "KOSPI");
                         foreach (var row in kosdaqRows)
                             AddSectorData(sectorSupply, sectorNameMap, sectorMarketMap, row, dTrade, "KOSDAQ");
 
-                        if (actualTradingDays.Count <= 2 || actualTradingDays.Count % 5 == 0)
+                        if (actualTradingDays.Count <= 2 || actualTradingDays.Count % 5 == 0 || kospiRows.Count == 0 || kosdaqRows.Count == 0)
                             LogMsg($"  {dateStr}: 코스피 {kospiRows.Count}업종, 코스닥 {kosdaqRows.Count}업종 [{actualTradingDays.Count}/{TARGET_DAYS}]");
 
                         d = dTrade.AddDays(-1);
@@ -153,6 +218,38 @@ namespace StockAnalyzer.Scoring
 
                 foreach (var kv in sectorSupply)
                     kv.Value.Sort((a, b) => b.Date.CompareTo(a.Date));
+
+                // ── 장중 업종수급 스냅샷(오늘) 반영 ─────────────────
+                if (intradayEnabled)
+                {
+                    var tStr = today.ToString("yyyyMMdd");
+                    try
+                    {
+                        var kRows = await kiwoom.GetSectorInvestorAsync("0", tStr, "1");
+                        if (kRows.Count > 0)
+                        {
+                            cache.UpsertRealtimeSectorSnapshot("KOSPI", today, kRows, DateTime.Now);
+                            foreach (var row in kRows) AddOrReplaceSectorData(sectorSupply, sectorNameMap, sectorMarketMap, row, today, "KOSPI");
+                            LogMsg($"  ↻ 장중 업종수급 반영(코스피): {kRows.Count}업종");
+                        }
+                    }
+                    catch (Exception ex) { LogMsg($"  ⚠ 장중 업종수급(코스피) 반영 실패: {ex.Message}"); }
+
+                    try
+                    {
+                        var dRows = await kiwoom.GetSectorInvestorAsync("1", tStr, "1");
+                        if (dRows.Count > 0)
+                        {
+                            cache.UpsertRealtimeSectorSnapshot("KOSDAQ", today, dRows, DateTime.Now);
+                            foreach (var row in dRows) AddOrReplaceSectorData(sectorSupply, sectorNameMap, sectorMarketMap, row, today, "KOSDAQ");
+                            LogMsg($"  ↻ 장중 업종수급 반영(코스닥): {dRows.Count}업종");
+                        }
+                    }
+                    catch (Exception ex) { LogMsg($"  ⚠ 장중 업종수급(코스닥) 반영 실패: {ex.Message}"); }
+
+                    foreach (var kv in sectorSupply)
+                        kv.Value.Sort((a, b) => b.Date.CompareTo(a.Date));
+                }
 
                 // ── 업종이름 → opt10051 복합키 역맵 (시장 포함) ──────
                 var sectorNameToKey = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -190,7 +287,13 @@ namespace StockAnalyzer.Scoring
                     string secCode = RawSectorCode(secKey);
                     var mktType = market == "KOSDAQ" ? "1" : "0";
 
-                    var sf = await kiwoom.GetSectorPerPbrAsync(secCode, mktType);
+                    var sf = cache.GetSectorValuation(market, secCode, latestCompleted);
+                    if (sf == null || (!sf.AvgPer.HasValue && !sf.AvgPbr.HasValue))
+                    {
+                        sf = await kiwoom.GetSectorPerPbrAsync(secCode, mktType);
+                        try { cache.UpsertSectorValuation(market, secCode, null, latestCompleted, sf, (sf.AvgPer.HasValue || sf.AvgPbr.HasValue) ? "OK" : "EMPTY"); } catch { }
+                    }
+                    sf = sf ?? new SectorFundamental();
                     sf.SectorCode = secCode;
                     sf.SectorName = sectorNameMap.TryGetValue(secKey, out var sn) ? sn : secCode;
                     sectorFunds[secKey] = sf;
@@ -219,9 +322,64 @@ namespace StockAnalyzer.Scoring
 
                     try
                     {
-                        var fund = await kiwoom.GetFundamentalAsync(code);
-                        var investors = await kiwoom.GetInvestorDataAsync(code, fromDate60);
-                        var bars = await kiwoom.GetDailyBarAsync(code, fromDate60);
+                        FundamentalData fund = null;
+                        try { fund = cache.GetLatestFundamental(code); } catch { }
+                        if (fund == null)
+                        {
+                            fund = await kiwoom.GetFundamentalAsync(code);
+                            try { if (fund != null) cache.UpsertFundamental(code, fund, today.ToString("yyyyMMdd")); } catch { }
+                        }
+                        else
+                        {
+                            LogMsg("    · 재무 캐시 사용");
+                        }
+
+                        var investors = cache.GetStockInvestorDaily(code, fromDate60);
+                        if (!HasSufficientInvestorRows(investors))
+                        {
+                            investors = await kiwoom.GetInvestorDataAsync(code, fromDate60);
+                            try { cache.UpsertStockInvestorDaily(code, investors); } catch { }
+                        }
+                        else
+                        {
+                            LogMsg($"    · 종목수급 캐시 사용 ({investors.Count}일)");
+                            if (intradayEnabled)
+                            {
+                                try
+                                {
+                                    var todayInv = await kiwoom.GetInvestorDataAsync(code, today);
+                                    if (todayInv != null && todayInv.Count > 0)
+                                    {
+                                        var trow = todayInv.OrderByDescending(x => x.Date).FirstOrDefault(x => x.Date.Date == today);
+                                        if (trow != null)
+                                        {
+                                            cache.UpsertRealtimeInvestorSnapshot(code, trow, DateTime.Now);
+                                            UpsertInvestorRow(investors, trow);
+                                        }
+                                    }
+                                }
+                                catch (Exception ex) { LogMsg($"    ⚠ 장중 종목수급 반영 실패: {ex.Message}"); }
+                            }
+                        }
+
+                        List<DailyBar> bars = cache.GetDailyBars(code, fromDate60);
+                        if (!HasSufficientBars(bars))
+                        {
+                            try
+                            {
+                                bars = await kiwoom.GetDailyBarAsync(code, fromDate60);
+                                try { cache.UpsertDailyBars(code, bars); } catch { }
+                            }
+                            catch (TimeoutException ex)
+                            {
+                                bars = bars ?? new List<DailyBar>();
+                                LogMsg($"    ⚠ 일봉 TR 지연: {ex.Message} (캐시/수급/재무로 계속 진행)");
+                            }
+                        }
+                        else
+                        {
+                            LogMsg($"    · 일봉 캐시 사용 ({bars.Count}일)");
+                        }
 
                         // opt10081에 시가총액 필드가 없으므로 opt10001 값으로 보정
                         if (fund != null && fund.MarketCap > 0)
@@ -230,7 +388,14 @@ namespace StockAnalyzer.Scoring
                                 if (b.MarketCap <= 0) b.MarketCap = fund.MarketCap;
                         }
 
-                        // 현재가 보정 (금액→수량 환산용 표시에 사용)
+                        // 현재가 보정 (표시/보조 계산용)
+                        try
+                        {
+                            var rtq = cache.GetRealtimeQuoteSnapshot(code);
+                            if (rtq?.CurrentPrice != null && rtq.CurrentPrice.Value > 0)
+                                info.CurrentPrice = rtq.CurrentPrice.Value;
+                        }
+                        catch { }
                         if (info.CurrentPrice <= 0 && bars.Count > 0)
                         {
                             var b0 = bars[0];
@@ -308,6 +473,7 @@ namespace StockAnalyzer.Scoring
                 LogMsg($"  업종 현황: 코스피 {sectorKospi.Count}개, 코스닥 {sectorKosdaq.Count}개");
 
                 results.Sort((a, b) => b.TotalScore.CompareTo(a.TotalScore));
+                try { LogMsg("  " + cache.GetHealthSummary()); } catch { }
                 LogMsg($"▶ 분석 완료: {results.Count}개 종목");
                 return (results, sectorKospi, sectorKosdaq);
             }
@@ -337,6 +503,34 @@ namespace StockAnalyzer.Scoring
 
             if (!sectorMarketMap.ContainsKey(key))
                 sectorMarketMap[key] = market;
+        }
+
+        private static void AddOrReplaceSectorData(
+            Dictionary<string, List<SectorSupplyDay>> sectorSupply,
+            Dictionary<string, string> sectorNameMap,
+            Dictionary<string, string> sectorMarketMap,
+            SectorInvestorRow row, DateTime date, string market)
+        {
+            var key = SectorCompositeKey(market, row.SectorCode);
+            if (!sectorSupply.TryGetValue(key, out var list))
+            {
+                list = new List<SectorSupplyDay>();
+                sectorSupply[key] = list;
+            }
+
+            var idx = list.FindIndex(x => x.Date.Date == date.Date);
+            var item = new SectorSupplyDay
+            {
+                Date = date.Date,
+                ForeignNet = row.ForeignNet,
+                InstNet = row.InstNet,
+            };
+            if (idx >= 0) list[idx] = item;
+            else list.Add(item);
+
+            if (!string.IsNullOrWhiteSpace(row.SectorName))
+                sectorNameMap[key] = row.SectorName;
+            sectorMarketMap[key] = market;
         }
 
         private static string SectorCompositeKey(string market, string sectorCode)
@@ -390,6 +584,35 @@ namespace StockAnalyzer.Scoring
             var idx = name.IndexOf('(');
             if (idx > 0) name = name.Substring(0, idx);
             return name.Trim().Replace(" ", "").Replace("·", "/");
+        }
+
+        private static bool HasSufficientInvestorRows(List<InvestorDay> rows)
+        {
+            if (rows == null) return false;
+            return rows.Select(r => r.Date.Date).Distinct().Count() >= 20;
+        }
+
+        private static bool HasSufficientBars(List<DailyBar> rows)
+        {
+            if (rows == null) return false;
+            return rows.Select(r => r.Date.Date).Distinct().Count() >= 55;
+        }
+
+        private static void UpsertInvestorRow(List<InvestorDay> rows, InvestorDay row)
+        {
+            if (rows == null || row == null) return;
+            var idx = rows.FindIndex(x => x.Date.Date == row.Date.Date);
+            if (idx >= 0) rows[idx] = row;
+            else rows.Add(row);
+            rows.Sort((a, b) => b.Date.CompareTo(a.Date));
+        }
+
+        private static bool IsMarketOpenNow()
+        {
+            var now = DateTime.Now;
+            if (!TradingDayHelper.IsTradingDay(now.Date)) return false;
+            var t = now.TimeOfDay;
+            return t >= new TimeSpan(9, 0, 0) && t <= new TimeSpan(15, 40, 0);
         }
 
         private void LogMsg(string msg) => Log?.Invoke(msg);

@@ -75,7 +75,7 @@ namespace StockAnalyzer.Api
         private List<StockInfo> _stockCache;
         private Dictionary<string, StockDailyTrade> _dailyTradeCache;
 
-        public async Task<List<StockInfo>> GetAllStocksAsync()
+        public async Task<List<StockInfo>> GetAllStocksAsync(bool forceRefresh = false)
         {
             if (_stockCache != null) return _stockCache;
 

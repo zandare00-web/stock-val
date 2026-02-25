@@ -32,10 +32,19 @@ namespace StockAnalyzer.Models
     public class InvestorDay
     {
         public DateTime Date { get; set; }
-        public long ForeignNet { get; set; }  // 외국인 순매수 (수량, 주)
-        public long InstNet { get; set; }  // 기관 순매수 (수량, 주)
+
+        // 키움 opt10059 실제 수신값 (정확값 분리 보관)
+        public long ForeignNetQty { get; set; }   // 외국인 순매수 수량(주)
+        public long InstNetQty { get; set; }      // 기관 순매수 수량(주)
+        public long ForeignNetAmt { get; set; }   // 외국인 순매수 금액(원)
+        public long InstNetAmt { get; set; }      // 기관 순매수 금액(원)
+
+        // 하위 호환(기존 로직): 기본은 금액(원)
+        public long ForeignNet { get; set; }
+        public long InstNet { get; set; }
+
         public long Volume { get; set; }  // 누적거래량 (주)
-        public double TradeAmount { get; set; } // 거래대금
+        public double TradeAmount { get; set; } // 거래대금 (원)
     }
 
     public class DailyBar
@@ -106,6 +115,16 @@ namespace StockAnalyzer.Models
         public long InstNet5D { get; set; }
         public long InstNet10D { get; set; }
         public long InstNet20D { get; set; }
+
+        // 종목수급 세부 (금액 기준, 원)
+        public long ForeignNetAmtD1 { get; set; }
+        public long ForeignNetAmt5D { get; set; }
+        public long ForeignNetAmt10D { get; set; }
+        public long ForeignNetAmt20D { get; set; }
+        public long InstNetAmtD1 { get; set; }
+        public long InstNetAmt5D { get; set; }
+        public long InstNetAmt10D { get; set; }
+        public long InstNetAmt20D { get; set; }
 
         // 거래회전율
         public double Turnover20D { get; set; }

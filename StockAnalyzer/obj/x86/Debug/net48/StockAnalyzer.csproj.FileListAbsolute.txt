@@ -2,6 +2,7 @@ D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\Stoc
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\StockAnalyzer.exe
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\StockAnalyzer.pdb
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\Newtonsoft.Json.dll
+D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\System.Data.SQLite.dll
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\AxInterop.KHOpenAPILib.dll
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\AxKHOpenAPILib.dll
 D:\SynologyDrive1\SynologyDrive\stock-val\StockAnalyzer\bin\x86\Debug\net48\Interop.KHOpenAPILib.dll

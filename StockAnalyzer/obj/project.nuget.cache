@@ -1,10 +1,12 @@
 {
   "version": 2,
-  "dgSpecHash": "pROEY5jzfC0=",
+  "dgSpecHash": "R7lOMfMpByg=",
   "success": true,
   "projectFilePath": "D:\\SynologyDrive1\\SynologyDrive\\stock-val\\StockAnalyzer\\StockAnalyzer.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\zandare\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512"
+    "C:\\Users\\zandare\\.nuget\\packages\\newtonsoft.json\\13.0.3\\newtonsoft.json.13.0.3.nupkg.sha512",
+    "C:\\Users\\zandare\\.nuget\\packages\\stub.system.data.sqlite.core.netframework\\1.0.118\\stub.system.data.sqlite.core.netframework.1.0.118.nupkg.sha512",
+    "C:\\Users\\zandare\\.nuget\\packages\\system.data.sqlite.core\\1.0.118\\system.data.sqlite.core.1.0.118.nupkg.sha512"
   ],
   "logs": []
 }

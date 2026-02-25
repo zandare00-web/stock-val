@@ -146,12 +146,19 @@ namespace StockAnalyzer.Forms
         CancellationTokenSource _cts; bool _running;
         ConsensusClient _consensus = new ConsensusClient();
         AnalysisResult _selectedResult;
+        System.Windows.Forms.Timer _liveRefreshTimer;
+        bool _autoRefreshBusy;
+        bool _autoReanalyzeEnabled = false;   // 기본 OFF (UI에서 ON/OFF)
+        bool _intradayRefreshEnabled = false; // 기본 OFF (UI에서 ON/OFF)
+        DateTime _lastAutoRefresh = DateTime.MinValue;
+        static readonly int AutoRefreshIntervalMs = 180000; // 3분(장중 준실시간 재분석)
         static readonly string SettingsPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "StockAnalyzer", "window.ini");
 
         // ── 컨트롤 ──
         RndBtn _btnLogin, _btnCsv, _btnRun, _btnStop, _btnSet;
+        CheckBox _chkAutoReanalyze, _chkIntradayRefresh;
         ComboBox _cbCond; Label _lblLogin, _lblCsv, _lblProg;
         SlimBar _bar;
         DataGridView _gStock, _gResult, _gSector;
@@ -214,11 +221,27 @@ namespace StockAnalyzer.Forms
             _btnSet = new RndBtn("⚙ 설정", Color.White, TXT_MAIN, 70, 32) { Bdr = CARD_BRD };
             _btnSet.Click += (s, e) => { using (var f = new SettingsForm()) f.ShowDialog(this); };
 
+            _chkAutoReanalyze = MkTopToggle("자동 재분석", _autoReanalyzeEnabled);
+            _chkAutoReanalyze.CheckedChanged += (s, e) =>
+            {
+                _autoReanalyzeEnabled = _chkAutoReanalyze.Checked;
+                ApplyRuntimeToggles();
+                _lblProg.Text = _autoReanalyzeEnabled ? "자동 재분석: ON" : "자동 재분석: OFF";
+            };
+
+            _chkIntradayRefresh = MkTopToggle("장중 자동갱신", _intradayRefreshEnabled);
+            _chkIntradayRefresh.CheckedChanged += (s, e) =>
+            {
+                _intradayRefreshEnabled = _chkIntradayRefresh.Checked;
+                ApplyRuntimeToggles();
+                _lblProg.Text = _intradayRefreshEnabled ? "장중 자동갱신: ON (다음 분석부터 반영)" : "장중 자동갱신: OFF";
+            };
+
             _lblLogin = new Label { ForeColor = Color.FromArgb(244, 63, 94), Font = new Font("Segoe UI", 9f, FontStyle.Bold), BackColor = MAIN_BG, TextAlign = ContentAlignment.MiddleRight, Text = "● 미연결" };
             _btnLogin = new RndBtn("로그인", TEAL, Color.White, 76, 32);
             _btnLogin.Click += BtnLogin_Click;
 
-            topBar.Controls.AddRange(new Control[] { title, _btnCsv, _lblCsv, lcond, _cbCond, _btnRun, _btnStop, _btnSet, _lblLogin, _btnLogin });
+            topBar.Controls.AddRange(new Control[] { title, _btnCsv, _lblCsv, lcond, _cbCond, _btnRun, _btnStop, _btnSet, _chkAutoReanalyze, _chkIntradayRefresh, _lblLogin, _btnLogin });
 
             topBar.Resize += (s, e) => {
                 int y = 16;
@@ -232,8 +255,11 @@ namespace StockAnalyzer.Forms
                 _cbCond.SetBounds(x, y + 4, 160, 26); x += 172;
 
                 _btnRun.Location = new Point(x, y); x += _btnRun.Width + 8;
-                _btnStop.Location = new Point(x, y); x += _btnStop.Width + 12;
-                _btnSet.Location = new Point(x, y);
+                _btnStop.Location = new Point(x, y); x += _btnStop.Width + 8;
+                _btnSet.Location = new Point(x, y); x += _btnSet.Width + 10;
+
+                _chkAutoReanalyze.SetBounds(x, y + 4, 92, 24); x += 96;
+                _chkIntradayRefresh.SetBounds(x, y + 4, 102, 24);
 
                 _btnLogin.Location = new Point(topBar.Width - 100, y);
                 _lblLogin.SetBounds(topBar.Width - 100 - 160, 0, 150, topBar.Height);
@@ -265,6 +291,8 @@ namespace StockAnalyzer.Forms
             Controls.Add(body);
             Controls.Add(topBar);
             Controls.Add(statusBar);
+            InitAutoRefreshTimer();
+            ApplyRuntimeToggles();
         }
 
         // ── 패널 빌더 ──
@@ -332,6 +360,58 @@ namespace StockAnalyzer.Forms
             card.Controls.Add(hdr);
             p.Controls.Add(card);
             return p;
+        }
+
+        CheckBox MkTopToggle(string text, bool initial)
+        {
+            var cb = new CheckBox
+            {
+                Appearance = Appearance.Button,
+                AutoSize = false,
+                Text = text,
+                TextAlign = ContentAlignment.MiddleCenter,
+                Checked = initial,
+                FlatStyle = FlatStyle.Flat,
+                BackColor = Color.White,
+                ForeColor = TXT_SEC,
+                Font = new Font("Segoe UI", 7.5f, FontStyle.Bold),
+                Cursor = Cursors.Hand,
+                Margin = new Padding(0)
+            };
+            cb.FlatAppearance.BorderSize = 1;
+            cb.FlatAppearance.CheckedBackColor = Color.White;
+            cb.FlatAppearance.MouseDownBackColor = Color.White;
+            cb.FlatAppearance.MouseOverBackColor = Color.White;
+            cb.CheckedChanged += AutoToggleStyleChanged;
+            ApplyToggleStyle(cb);
+            return cb;
+        }
+
+        void ApplyRuntimeToggles()
+        {
+            if (_chkAutoReanalyze != null && _chkAutoReanalyze.Checked != _autoReanalyzeEnabled)
+                _chkAutoReanalyze.Checked = _autoReanalyzeEnabled;
+            if (_chkIntradayRefresh != null && _chkIntradayRefresh.Checked != _intradayRefreshEnabled)
+                _chkIntradayRefresh.Checked = _intradayRefreshEnabled;
+
+            if (_chkAutoReanalyze != null) ApplyToggleStyle(_chkAutoReanalyze);
+            if (_chkIntradayRefresh != null) ApplyToggleStyle(_chkIntradayRefresh);
+
+            if (_liveRefreshTimer != null)
+                _liveRefreshTimer.Enabled = _autoReanalyzeEnabled && !_running && _codes != null && _codes.Count > 0;
+        }
+
+        void AutoToggleStyleChanged(object sender, EventArgs e)
+        {
+            if (sender is CheckBox cb) ApplyToggleStyle(cb);
+        }
+
+        void ApplyToggleStyle(CheckBox cb)
+        {
+            if (cb == null) return;
+            cb.FlatAppearance.BorderColor = cb.Checked ? TEAL_D : CARD_BRD;
+            cb.BackColor = cb.Checked ? Color.FromArgb(238, 242, 255) : Color.White;
+            cb.ForeColor = cb.Checked ? TEAL_D : TXT_SEC;
         }
 
         // ═══════════════ 이벤트 핸들러 ═══════════════════════════
@@ -409,33 +489,77 @@ namespace StockAnalyzer.Forms
 
         async void BtnRun_Click(object s, EventArgs e)
         {
+            await RunAnalysisCoreAsync(false);
+        }
+
+        void InitAutoRefreshTimer()
+        {
+            if (_liveRefreshTimer != null) return;
+            _liveRefreshTimer = new System.Windows.Forms.Timer { Interval = AutoRefreshIntervalMs };
+            _liveRefreshTimer.Tick += async (s, e) =>
+            {
+                if (!_autoReanalyzeEnabled) return;
+                if (_autoRefreshBusy || _running) return;
+                if (_codes == null || _codes.Count == 0) return;
+                if (!IsMarketHoursApprox()) return;
+                if ((DateTime.Now - _lastAutoRefresh).TotalSeconds < 60) return;
+
+                _autoRefreshBusy = true;
+                try { await RunAnalysisCoreAsync(true); }
+                finally { _autoRefreshBusy = false; }
+            };
+        }
+
+        static bool IsMarketHoursApprox()
+        {
+            var now = DateTime.Now;
+            var t = now.TimeOfDay;
+            if (t < new TimeSpan(8, 55, 0) || t > new TimeSpan(15, 45, 0)) return false;
+            return TradingDayHelper.IsTradingDay(now.Date);
+        }
+
+        async Task RunAnalysisCoreAsync(bool isAutoRefresh)
+        {
             if (_running) return;
+            if (_codes == null || _codes.Count == 0) return;
+
             _cts = new CancellationTokenSource();
             SetRun(true);
-            _res.Clear(); _sK.Clear(); _sD.Clear();
-            _gResult.Rows.Clear(); _gSector.Rows.Clear();
-            ShowDetail(null);
+
+            if (!isAutoRefresh)
+            {
+                _res.Clear(); _sK.Clear(); _sD.Clear();
+                _gResult.Rows.Clear(); _gSector.Rows.Clear();
+                ShowDetail(null);
+            }
 
             try
             {
                 var cfg = ScoreConfig.Load();
                 var engine = new AnalysisEngine(_ax);
-                engine.Log += msg => { _lblProg.Text = msg; System.Diagnostics.Debug.WriteLine(msg); };
+                engine.Log += msg => { _lblProg.Text = (isAutoRefresh ? "[자동갱신] " : "") + msg; System.Diagnostics.Debug.WriteLine(msg); };
                 engine.Progress += (cur, tot, nm) =>
                 {
-                    _bar.Value = cur * 100 / tot; _bar.Invalidate();
-                    _lblProg.Text = $"{nm} ({cur}/{tot})";
+                    _bar.Value = tot <= 0 ? 0 : cur * 100 / tot; _bar.Invalidate();
+                    _lblProg.Text = $"{(isAutoRefresh ? "자동갱신" : nm)} ({cur}/{tot})";
                 };
 
-                // ★ UI 스레드에서 직접 실행 (Task.Run 금지 - OCX COM 이벤트 스레드 안전성)
-                var (results, sK, sD) = await engine.RunAsync(_codes, cfg, _cts.Token);
+                var (results, sK, sD) = await engine.RunAsync(_codes, cfg, _cts.Token, intradayRefresh: _intradayRefreshEnabled);
 
                 _res = results; _sK = sK; _sD = sD;
                 FillResult(); FillSector(); FillStock();
                 UpdateKpi();
+
+                _lastAutoRefresh = DateTime.Now;
+                if (_liveRefreshTimer != null) _liveRefreshTimer.Enabled = _autoReanalyzeEnabled;
+                if (isAutoRefresh) _lblProg.Text = $"자동갱신 완료 {DateTime.Now:HH:mm:ss}";
             }
             catch (OperationCanceledException) { _lblProg.Text = "취소됨"; }
-            catch (Exception ex) { _lblProg.Text = $"오류: {ex.Message}"; MessageBox.Show(ex.Message, "오류"); }
+            catch (Exception ex)
+            {
+                _lblProg.Text = $"오류: {ex.Message}";
+                if (!isAutoRefresh) MessageBox.Show(ex.Message, "오류");
+            }
             finally { SetRun(false); }
         }
 
@@ -617,15 +741,14 @@ namespace StockAnalyzer.Forms
             for (int i = 0; i < _res.Count; i++)
             {
                 var r = _res[i];
-                double px = r.CurrentPrice > 0 ? r.CurrentPrice : 1;
                 _gResult.Rows.Add(
                     i + 1,
                     r.Name,
                     r.TotalScore.ToString("F1"),
-                    FQ1((long)Math.Round(r.ForeignNet5D / px)),   // F5D (수량 1주 단위 환산)
-                    FQ1((long)Math.Round(r.ForeignNet10D / px)),  // F10D
-                    FQ1((long)Math.Round(r.InstNet5D / px)),      // I5D
-                    FQ1((long)Math.Round(r.InstNet10D / px)),     // I10D
+                    FQ1(r.ForeignNet5D),    // F5D (실제 수량, 주)
+                    FQ1(r.ForeignNet10D),   // F10D
+                    FQ1(r.InstNet5D),       // I5D
+                    FQ1(r.InstNet10D),      // I10D
                     r.SupplyTrend.ToString(),             // Trend
                     r.VolTrend.ToString(),                // Vol (20/60)
                     r.SectorName,                         // Sector
@@ -799,16 +922,15 @@ namespace StockAnalyzer.Forms
             fl.Controls.Add(DR("업종PBR", r.SectorAvgPbr.HasValue ? r.SectorAvgPbr.Value.ToString("F2") : "—"));
             fl.Controls.Add(DH());
 
-            // ★ 수량 환산 (금액÷현재가)
-            double px = r.CurrentPrice > 0 ? r.CurrentPrice : 1;
-            fl.Controls.Add(DR("외국인 당일", FQ((long)(r.ForeignNetD1 / px)), NQ(r.ForeignNetD1), true));
-            fl.Controls.Add(DR("외국인 5일", FQ((long)(r.ForeignNet5D / px)), NQ(r.ForeignNet5D), true));
-            fl.Controls.Add(DR("외국인 10일", FQ((long)(r.ForeignNet10D / px)), NQ(r.ForeignNet10D), true));
-            fl.Controls.Add(DR("외국인 20일", FQ((long)(r.ForeignNet20D / px)), NQ(r.ForeignNet20D), true));
-            fl.Controls.Add(DR("기관 당일", FQ((long)(r.InstNetD1 / px)), NQ(r.InstNetD1), true));
-            fl.Controls.Add(DR("기관 5일", FQ((long)(r.InstNet5D / px)), NQ(r.InstNet5D), true));
-            fl.Controls.Add(DR("기관 10일", FQ((long)(r.InstNet10D / px)), NQ(r.InstNet10D), true));
-            fl.Controls.Add(DR("기관 20일", FQ((long)(r.InstNet20D / px)), NQ(r.InstNet20D), true));
+            // ★ 종목수급: 실제 수량(주)만 표시 (금액 제거)
+            fl.Controls.Add(DR("외국인 당일", FQ1(r.ForeignNetD1), NQ(r.ForeignNetD1), true));
+            fl.Controls.Add(DR("외국인 5일", FQ1(r.ForeignNet5D), NQ(r.ForeignNet5D), true));
+            fl.Controls.Add(DR("외국인 10일", FQ1(r.ForeignNet10D), NQ(r.ForeignNet10D), true));
+            fl.Controls.Add(DR("외국인 20일", FQ1(r.ForeignNet20D), NQ(r.ForeignNet20D), true));
+            fl.Controls.Add(DR("기관 당일", FQ1(r.InstNetD1), NQ(r.InstNetD1), true));
+            fl.Controls.Add(DR("기관 5일", FQ1(r.InstNet5D), NQ(r.InstNet5D), true));
+            fl.Controls.Add(DR("기관 10일", FQ1(r.InstNet10D), NQ(r.InstNet10D), true));
+            fl.Controls.Add(DR("기관 20일", FQ1(r.InstNet20D), NQ(r.InstNet20D), true));
             fl.Controls.Add(DH());
 
             fl.Controls.Add(DR("거래량20D평균", FVol(r.VolAvg20D)));
@@ -897,6 +1019,9 @@ namespace StockAnalyzer.Forms
         /// <summary>수량(주) 포맷: 1주 단위 표시(축약 없음)</summary>
         static string FQ1(long v) => v.ToString("+#,0;-#,0;0");
 
+        /// <summary>금액(원) 포맷: 1원 단위 정확값</summary>
+        static string FW(long v) => v.ToString("+#,0;-#,0;0") + "원";
+
         /// <summary>거래량 포맷 (평균): 12.3만, 1.2억</summary>
         static string FVol(double v)
         {
@@ -915,6 +1040,8 @@ namespace StockAnalyzer.Forms
         void SetRun(bool v)
         {
             _running = v; _btnRun.Enabled = !v && _codes.Count > 0; _btnStop.Enabled = v; _btnCsv.Enabled = !v;
+            if (_chkAutoReanalyze != null) _chkAutoReanalyze.Enabled = !v;
+            if (_chkIntradayRefresh != null) _chkIntradayRefresh.Enabled = !v;
             if (v) { _btnRun.Text = "⏳ 분석 중"; _btnRun.Invalidate(); }
             else { _btnRun.Text = "✅ 분석 완료"; _btnRun.Invalidate(); _bar.Value = 0; _bar.Invalidate(); _lblProg.Text = "분석 완료!"; }
         }
@@ -937,6 +1064,8 @@ namespace StockAnalyzer.Forms
                         int x = int.Parse(lines[0]), y = int.Parse(lines[1]);
                         int w = int.Parse(lines[2]), h = int.Parse(lines[3]);
                         bool max = lines[4] == "1";
+                        if (lines.Length >= 6) _autoReanalyzeEnabled = lines[5] == "1";
+                        if (lines.Length >= 7) _intradayRefreshEnabled = lines[6] == "1";
 
                         var screen = Screen.FromPoint(new Point(x, y));
                         var wa = screen.WorkingArea;
@@ -973,7 +1102,9 @@ namespace StockAnalyzer.Forms
                 {
                     bounds.X.ToString(), bounds.Y.ToString(),
                     bounds.Width.ToString(), bounds.Height.ToString(),
-                    max ? "1" : "0"
+                    max ? "1" : "0",
+                    _autoReanalyzeEnabled ? "1" : "0",
+                    _intradayRefreshEnabled ? "1" : "0"
                 });
             }
             catch { }
